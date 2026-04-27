@@ -25,17 +25,19 @@ const TESTIMONIALS = [
   },
 ];
 
+// SVG polaroids include a baked-in 17.85° tilt; CSS rotations below
+// compensate for that so each card lands at a different visual angle.
 const PHOTOS = [
-  { src: "/photos/couple-1.png", rotate: -6, top: "52%", left: "8%" },
-  { src: "/photos/couple-2.png", rotate: 3, top: "48%", left: "30%" },
-  { src: "/photos/couple-3.png", rotate: -4, top: "58%", left: "52%" },
-  { src: "/photos/couple-4.png", rotate: 5, top: "44%", left: "18%" },
+  { src: "/photos/couple-1.svg", rotate: -25, top: "10%", left: "0%" },
+  { src: "/photos/couple-2.svg", rotate: -14, top: "0%",  left: "30%" },
+  { src: "/photos/couple-3.svg", rotate: -21, top: "32%", left: "55%" },
+  { src: "/photos/couple-4.svg", rotate: -12, top: "44%", left: "20%" },
 ];
 
 const PINS = [
-  { color: "#9b59b6", top: "54%", left: "22%" },
-  { color: "#27ae60", top: "50%", left: "48%" },
-  { color: "#e74c3c", top: "68%", left: "36%" },
+  { color: "#9b59b6", top: "8%",  left: "32%" },
+  { color: "#27ae60", top: "34%", left: "62%" },
+  { color: "#e74c3c", top: "84%", left: "16%" },
 ];
 
 export default function LoginPage() {
@@ -118,6 +120,9 @@ export default function LoginPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "row", width: "100vw", height: "100vh", overflow: "hidden", position: "fixed", top: 0, left: 0, zIndex: 50 }}>
+      {/* ── Dashed seam between the two panels ── */}
+      <div className="split-seam hidden lg:block" aria-hidden="true" />
+
       {/* ────────── LEFT PANEL ────────── */}
       <div style={{ width: "50%", height: "100%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#faf6f1", padding: "48px 64px", overflowY: "auto" }} className="login-left-panel">
         <div className="w-full max-w-[420px] auth-fade-1">
@@ -303,40 +308,36 @@ export default function LoginPage() {
       </div>
 
       {/* ────────── RIGHT PANEL ────────── */}
-      <div style={{ width: "50%", height: "100%", flexShrink: 0, position: "relative", overflow: "hidden", background: "#c8a96e" }} className="login-right-panel">
-        {/* Corkboard texture overlay */}
-        <div className="absolute inset-0 corkboard-texture" />
-        <div className="absolute inset-0 corkboard-grain" />
+      <div style={{ width: "50%", height: "100%", flexShrink: 0, position: "relative", overflow: "hidden" }} className="login-right-panel">
+        <div className="absolute inset-0 notebook-paper" />
+        <div className="absolute inset-0 notebook-rules" />
+        <div className="absolute inset-0 notebook-grain" />
 
-        {/* ── Postage stamps (top-right cluster) ── */}
-        <div className="absolute top-8 right-8 flex flex-wrap gap-3 w-[260px] justify-end z-10">
+        {/* Stamps — tight 2×2 grid; SVGs render at native aspect ratio */}
+        <div className="absolute top-12 right-12 grid grid-cols-2 gap-3 z-10 items-end">
           <div className="postage-stamp" style={{ transform: "rotate(-3deg)" }}>
-            <Image src="/stamps/egypt.svg" alt="Egypt" width={110} height={130} className="postage-stamp-img" />
-            <span className="postage-stamp-label" style={{ color: "#c0392b" }}>EGYPT</span>
+            <Image src="/stamps/egypt.svg" alt="" width={146} height={146} className="postage-stamp-img" />
           </div>
           <div className="postage-stamp" style={{ transform: "rotate(2deg)" }}>
-            <Image src="/stamps/liberty.svg" alt="New York" width={110} height={130} className="postage-stamp-img" />
-            <span className="postage-stamp-label" style={{ color: "#2c3e50" }}>NEW YORK</span>
+            <Image src="/stamps/liberty.svg" alt="" width={120} height={146} className="postage-stamp-img" />
           </div>
           <div className="postage-stamp" style={{ transform: "rotate(4deg)" }}>
-            <Image src="/stamps/big-ben.svg" alt="London" width={110} height={130} className="postage-stamp-img" />
-            <span className="postage-stamp-label" style={{ color: "#8e44ad" }}>ENGLAND</span>
+            <Image src="/stamps/big-ben.svg" alt="" width={122} height={146} className="postage-stamp-img" />
           </div>
           <div className="postage-stamp" style={{ transform: "rotate(-2deg)" }}>
-            <Image src="/stamps/eiffel.svg" alt="France" width={110} height={130} className="postage-stamp-img" />
-            <span className="postage-stamp-label" style={{ color: "#2980b9" }}>FRANCE</span>
+            <Image src="/stamps/eiffel.svg" alt="" width={146} height={145} className="postage-stamp-img" />
           </div>
         </div>
 
-        {/* ── Handwritten love flourish ── */}
-        <div className="absolute top-[8%] left-[18%] z-[5]">
-          <svg width="220" height="280" viewBox="0 0 300 385" fill="none" className="opacity-70">
-            <path d="M11.2819 369.33C23.904 303.579 53.8139 233.621 102.998 186.503C116.372 173.691 181.231 111.037 200.553 139.54C209.808 153.191 192.863 161.137 181.896 162.336C160.309 164.694 142.99 164.636 121.864 157.364C89.2555 146.138 45.4412 122.044 54.4862 81.2581C58.3898 63.6556 83.1017 55.4108 98.2999 56.0674C113.201 56.7112 126.2 61.6885 140.187 66.2925C151.555 70.0346 149.391 70.3398 148.086 58.4006C144.812 28.4337 171.464 -12.2444 201.23 17.8642C217.931 34.7571 222.945 55.8544 229.068 77.6428C231.369 85.8271 235.785 99.7707 234.612 108.276C233.335 117.537 224.313 110.266 222.802 104.161C219.043 88.9826 221.535 79.6488 234.581 70.8047C246.38 62.8063 268.254 61.3694 278.099 74.2866C283.561 81.4532 284.209 78.3543 282.927 71.0133C281.933 65.3181 275.347 49.4346 278.591 54.22C279.734 55.906 289.102 69.926 288.113 72.0087C284.592 79.423 276.682 84.8776 271.823 91.2265" stroke="#6B1B1B" strokeOpacity="0.3" strokeWidth="6.56" strokeLinecap="round" />
+        {/* Heart-arrow flourish */}
+        <div className="absolute top-[10%] left-[22%] z-[5]">
+          <svg width="200" height="260" viewBox="0 0 300 385" fill="none" className="opacity-50">
+            <path d="M11.2819 369.33C23.904 303.579 53.8139 233.621 102.998 186.503C116.372 173.691 181.231 111.037 200.553 139.54C209.808 153.191 192.863 161.137 181.896 162.336C160.309 164.694 142.99 164.636 121.864 157.364C89.2555 146.138 45.4412 122.044 54.4862 81.2581C58.3898 63.6556 83.1017 55.4108 98.2999 56.0674C113.201 56.7112 126.2 61.6885 140.187 66.2925C151.555 70.0346 149.391 70.3398 148.086 58.4006C144.812 28.4337 171.464 -12.2444 201.23 17.8642C217.931 34.7571 222.945 55.8544 229.068 77.6428C231.369 85.8271 235.785 99.7707 234.612 108.276C233.335 117.537 224.313 110.266 222.802 104.161C219.043 88.9826 221.535 79.6488 234.581 70.8047C246.38 62.8063 268.254 61.3694 278.099 74.2866C283.561 81.4532 284.209 78.3543 282.927 71.0133C281.933 65.3181 275.347 49.4346 278.591 54.22C279.734 55.906 289.102 69.926 288.113 72.0087C284.592 79.423 276.682 84.8776 271.823 91.2265" stroke="#6B3A1B" strokeWidth="6.56" strokeLinecap="round" />
           </svg>
         </div>
 
-        {/* ── Testimonial quote ── */}
-        <div className="absolute top-[30%] right-[8%] w-[280px] z-10">
+        {/* Testimonial — handwritten, centered, with rotating dots */}
+        <div className="absolute top-[36%] left-1/2 -translate-x-1/2 w-[340px] z-10">
           <div
             className="transition-all duration-500"
             style={{
@@ -344,71 +345,77 @@ export default function LoginPage() {
               transform: testiFading ? "translateY(6px)" : "translateY(0)",
             }}
           >
-            <p className="font-[family-name:var(--font-dm-sans)] italic text-[14px] leading-[1.75] text-[#3a2a1a] mb-3">
+            <p className="handwritten-quote">
               &ldquo;{TESTIMONIALS[testiIdx].quote}&rdquo;
             </p>
-            <p className="font-[family-name:var(--font-dm-sans)] text-[13px] text-[#5a4a3a]">
+            <p className="handwritten-quote-attr">
               {TESTIMONIALS[testiIdx].name} ~
             </p>
           </div>
-          {/* Dots */}
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-2 mt-4 justify-center">
             {TESTIMONIALS.map((_, i) => (
-              <div
+              <button
                 key={i}
+                type="button"
                 onClick={() => goToTesti(i)}
+                aria-label={`Show testimonial ${i + 1}`}
                 className="w-[6px] h-[6px] rounded-full cursor-pointer transition-all duration-300"
                 style={{
                   background: i === testiIdx ? "#5a3a2a" : "rgba(90,58,42,0.3)",
                   transform: i === testiIdx ? "scale(1.3)" : "scale(1)",
+                  border: "none",
+                  padding: 0,
                 }}
               />
             ))}
           </div>
         </div>
 
-        {/* ── Scattered photos ── */}
-        {PHOTOS.map((photo, i) => (
-          <div
-            key={i}
-            className="photo-frame absolute z-[8]"
-            style={{
-              top: photo.top,
-              left: photo.left,
-              transform: `rotate(${photo.rotate}deg)`,
-            }}
-          >
-            <Image
-              src={photo.src}
-              alt={`Couple ${i + 1}`}
-              width={140}
-              height={140}
-              className="photo-frame-img"
+        {/* Photo cluster — SVG polaroids render with their own frame + shadow */}
+        <div className="absolute bottom-[10%] left-[12%] w-[420px] h-[260px] z-[8]">
+          {PHOTOS.map((photo, i) => (
+            <div
+              key={i}
+              className="photo-card"
+              style={{
+                top: photo.top,
+                left: photo.left,
+                transform: `rotate(${photo.rotate}deg)`,
+              }}
+            >
+              <Image
+                src={photo.src}
+                alt=""
+                width={210}
+                height={196}
+                className="photo-card-img"
+              />
+            </div>
+          ))}
+
+          {PINS.map((pin, i) => (
+            <div
+              key={i}
+              className="pushpin z-[12]"
+              style={{
+                top: pin.top,
+                left: pin.left,
+                background: pin.color,
+              }}
             />
-          </div>
-        ))}
+          ))}
+        </div>
 
-        {/* ── Push pins ── */}
-        {PINS.map((pin, i) => (
-          <div
-            key={i}
-            className="absolute z-[12] w-3 h-3 rounded-full shadow-md"
-            style={{
-              top: pin.top,
-              left: pin.left,
-              background: pin.color,
-              boxShadow: `0 2px 4px rgba(0,0,0,0.3), inset 0 1px 2px rgba(255,255,255,0.3)`,
-            }}
-          />
-        ))}
-
-        {/* ── Lips / kiss mark ── */}
-        <div className="absolute bottom-[4%] right-[4%] z-[6] opacity-40">
+        {/* Lipstick kiss mark */}
+        <div
+          className="absolute z-[6] pointer-events-none select-none"
+          style={{ bottom: "26%", right: "-3%", transform: "rotate(-12deg)", opacity: 0.55 }}
+        >
           <Image
             src="/stamps/lips.svg"
-            alt="Kiss mark"
-            width={200}
-            height={200}
+            alt=""
+            width={220}
+            height={220}
             className="object-contain"
             draggable={false}
           />

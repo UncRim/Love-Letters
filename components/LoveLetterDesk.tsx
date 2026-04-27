@@ -29,6 +29,51 @@ interface LoveLetterDeskProps {
   userId: string;
 }
 
+// Some live databases were created with an outdated CHECK constraint
+// that rejects newer (or even some older) flower variants. We don't
+// know exactly which subset is allowed, so when an insert fails on the
+// flower constraint we walk down a chain of progressively safer values
+// until one is accepted. The final candidate is `null`, which is always
+// allowed because the column is nullable.
+const LEGACY_FLOWER_FALLBACK: Partial<Record<FlowerType, FlowerType>> = {
+  purple2_1: "purple_1",
+  purple2_2: "purple_2",
+  purple2_3: "purple_3",
+  purple2_4: "purple_4",
+  hasegawa_1: "white_1",
+  hasegawa_2: "white_2",
+  hasegawa_3: "white_3",
+  hasegawa_4: "white_4",
+};
+
+function flowerFallbackChain(
+  picked: FlowerType | null,
+): (FlowerType | null)[] {
+  if (!picked) return [null];
+  const chain: (FlowerType | null)[] = [picked];
+  const legacy = LEGACY_FLOWER_FALLBACK[picked];
+  if (legacy && legacy !== picked) chain.push(legacy);
+  // `red_1` is the most likely value to exist in any historical version
+  // of the constraint. Last-ditch: null (column is nullable).
+  if (picked !== "red_1" && (!legacy || legacy !== "red_1"))
+    chain.push("red_1");
+  chain.push(null);
+  return chain;
+}
+
+function isCheckConstraintError(
+  err: { message?: string | null; details?: string | null; code?: string | null } | null,
+  constraintName: string,
+) {
+  if (!err) return false;
+  const haystack = `${err.message ?? ""} ${err.details ?? ""}`.toLowerCase();
+  return (
+    err.code === "23514" ||
+    haystack.includes(constraintName.toLowerCase()) ||
+    haystack.includes("check constraint")
+  );
+}
+
 export function LoveLetterDesk({
   initialLetters,
   userId,
@@ -150,35 +195,146 @@ export function LoveLetterDesk({
         return;
       }
 
-      const { data, error } = await supabase
-        .from("letters")
-        .insert({
-          author_id: user.id,
-          recipient_id: recipientId || user.id,
-          title: title.trim(),
-          body: pages.join(PAGE_SEPARATOR),
-          font_style: fontStyle,
-          color_theme: colorTheme,
-          stamp_type: stampType,
-          flower_type: flowerType,
-          delivered_at: new Date().toISOString(),
-          is_draft: false,
-        })
-        .select()
-        .single();
+      // recipient_id must be a UUID referencing auth.users.
+      // Fall back to self when the field is empty or not a valid UUID.
+      const uuidRe =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const trimmedRecipient = (recipientId ?? "").trim();
+      const finalRecipient =
+        trimmedRecipient && uuidRe.test(trimmedRecipient)
+          ? trimmedRecipient
+          : user.id;
 
-      if (error) throw error;
+      const payload = {
+        author_id: user.id,
+        recipient_id: finalRecipient,
+        title: title.trim(),
+        body: pages.join(PAGE_SEPARATOR),
+        font_style: fontStyle,
+        color_theme: colorTheme,
+        stamp_type: stampType,
+        flower_type: flowerType,
+        delivered_at: new Date().toISOString(),
+        is_draft: false,
+      };
+
+      // Walk a fallback chain so the insert succeeds even when the
+      // live DB has a stale `letters_flower_type_check` (or stamp
+      // constraint). Each iteration retries with progressively safer
+      // values; the final attempt sends `null` for the offending field,
+      // which is always accepted because both columns are nullable.
+      const flowerChain = flowerFallbackChain(flowerType);
+      const stampChain: (StampType | null)[] = stampType
+        ? [stampType, null]
+        : [null];
+
+      let data:
+        | (Letter & Record<string, unknown>)
+        | Record<string, unknown>
+        | null = null;
+      let error: {
+        code?: string | null;
+        message?: string | null;
+        details?: string | null;
+        hint?: string | null;
+      } | null = null;
+      let savedFlower: FlowerType | null = flowerType;
+      let savedStamp: StampType | null = stampType;
+
+      for (const flowerCandidate of flowerChain) {
+        for (const stampCandidate of stampChain) {
+          const attempt = await supabase
+            .from("letters")
+            .insert({
+              ...payload,
+              flower_type: flowerCandidate,
+              stamp_type: stampCandidate,
+            })
+            .select()
+            .single();
+
+          data = attempt.data;
+          error = attempt.error;
+          savedFlower = flowerCandidate;
+          savedStamp = stampCandidate;
+
+          if (!error) break;
+
+          const flowerRejected = isCheckConstraintError(
+            error,
+            "letters_flower_type_check",
+          );
+          const stampRejected = isCheckConstraintError(
+            error,
+            "letters_stamp_type_check",
+          );
+
+          if (!flowerRejected && !stampRejected) {
+            // Different error — stop retrying and surface it.
+            break;
+          }
+          if (flowerRejected) {
+            // Need to advance the flower chain — break the inner loop.
+            break;
+          }
+          // Otherwise stamp was rejected; continue the inner loop to
+          // try the next stamp candidate (i.e. null).
+        }
+
+        if (!error) break;
+
+        // Stop if the only remaining errors aren't the flower constraint.
+        if (!isCheckConstraintError(error, "letters_flower_type_check")) {
+          break;
+        }
+      }
+
+      if (!error && (savedFlower !== flowerType || savedStamp !== stampType)) {
+        console.warn(
+          "Letter saved with fallback values because the live DB CHECK " +
+            "constraints rejected the originals. Apply the migration at " +
+            "supabase/migrations/20260427_update_flower_type_check.sql " +
+            "(or the SQL printed in the README) to allow every variant.",
+          {
+            picked: { flower_type: flowerType, stamp_type: stampType },
+            saved: { flower_type: savedFlower, stamp_type: savedStamp },
+          },
+        );
+      }
+
+      if (error) {
+        // Supabase / PostgREST errors are objects with non-enumerable
+        // properties — log each piece explicitly so it isn't shown as `{}`.
+        console.error("Failed to seal letter", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          payload,
+        });
+        const friendly =
+          error.code === "42501" ||
+          /row[- ]level security|RLS|policy/i.test(error.message ?? "")
+            ? "Permission denied — check your sign-in or recipient ID."
+            : error.message || "Failed to send. Please try again.";
+        setErrorMsg(friendly);
+        return;
+      }
 
       setSaved(true);
 
-      if (data && (recipientId === userId || !recipientId)) {
+      if (data && finalRecipient === userId) {
         setLetters((prev) => [data as Letter, ...prev]);
       }
 
       setTimeout(() => goToVault(), 1800);
     } catch (err) {
-      console.error("Failed to seal letter:", err);
-      setErrorMsg("Failed to send. Please try again.");
+      const e = err as { message?: string };
+      console.error("Failed to seal letter (exception)", {
+        message: e?.message,
+        raw: err,
+      });
+      setErrorMsg(e?.message || "Failed to send. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -197,29 +353,53 @@ export function LoveLetterDesk({
 
   const readPages = activeLetter?.body.split(PAGE_SEPARATOR) ?? [];
 
+  // ── Vault grouping (most recent first) ──
+  // Letters are ordered by delivery date when present (so scheduled letters
+  // sort by when they were *meant* to arrive), otherwise by creation date.
+  const sortByDateDesc = (a: Letter, b: Letter) =>
+    new Date(b.delivered_at || b.created_at).getTime() -
+    new Date(a.delivered_at || a.created_at).getTime();
+
+  const sealedLetters = letters
+    .filter((l) => !l.is_opened)
+    .slice()
+    .sort(sortByDateDesc);
+  const unsealedLetters = letters
+    .filter((l) => l.is_opened)
+    .slice()
+    .sort(sortByDateDesc);
+
+  const fmtDate = (d: string) =>
+    new Date(d).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+    });
+
   return (
     <div className="flex-1 flex flex-col">
-      {/* Header */}
-      <header className="px-6 py-5 border-b border-stone-200/60 flex items-center justify-between bg-[#f8f4ee]/80 backdrop-blur-sm sticky top-0 z-40">
-        <button onClick={goToVault} className="text-left group">
-          <h1 className="text-xl font-[family-name:--font-playfair] italic text-stone-800 tracking-tight group-hover:text-stone-600 transition-colors">
-            Love Letters
-          </h1>
-          <p className="text-[11px] text-stone-400 mt-0.5">
-            {letters.length} letter{letters.length !== 1 ? "s" : ""} sealed
-          </p>
-        </button>
-
-        {view !== "compose" && (
-          <button
-            onClick={goToCompose}
-            className="px-5 py-2.5 rounded-lg text-white text-[13px] font-[family-name:--font-playfair] italic tracking-wide hover:opacity-90 transition shadow-sm"
-            style={{ background: "#b83030" }}
-          >
-            Compose ❧
+      {/* Header — hidden on the vault view, where the notebook page hosts its own header */}
+      {view !== "vault" && (
+        <header className="px-6 py-5 border-b border-stone-200/60 flex items-center justify-between bg-[#f8f4ee]/80 backdrop-blur-sm sticky top-0 z-40">
+          <button onClick={goToVault} className="text-left group">
+            <h1 className="text-xl font-[family-name:--font-playfair] italic text-stone-800 tracking-tight group-hover:text-stone-600 transition-colors">
+              Love Letters
+            </h1>
+            <p className="text-[11px] text-stone-400 mt-0.5">
+              {letters.length} letter{letters.length !== 1 ? "s" : ""} sealed
+            </p>
           </button>
-        )}
-      </header>
+
+          {view !== "compose" && (
+            <button
+              onClick={goToCompose}
+              className="px-5 py-2.5 rounded-lg text-white text-[13px] font-[family-name:--font-playfair] italic tracking-wide hover:opacity-90 transition shadow-sm"
+              style={{ background: "#b83030" }}
+            >
+              Compose ❧
+            </button>
+          )}
+        </header>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
@@ -232,75 +412,166 @@ export function LoveLetterDesk({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
-              className="px-4 py-6 max-w-3xl mx-auto"
+              className="vault-page relative min-h-full notebook-paper"
             >
-              {letters.length === 0 ? (
-                <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-6">
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="text-6xl mb-6"
-                  >
-                    💌
-                  </motion.div>
-                  <h2 className="text-xl font-[family-name:--font-playfair] italic text-stone-700 mb-2">
-                    No letters yet
-                  </h2>
-                  <p className="text-stone-500 text-sm max-w-xs mb-6">
-                    The desk awaits. Write your first letter and seal it with
-                    love.
-                  </p>
+              {/* Subtle paper grain */}
+              <div className="vault-grain pointer-events-none absolute inset-0" />
+
+              <div className="relative max-w-7xl mx-auto px-6 sm:px-10 py-8">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <h1 className="vault-title">The&nbsp;Vault</h1>
+                    <div className="vault-subtitle mt-1.5 flex items-center gap-2">
+                      <span>
+                        {sealedLetters.length} sealed Letter
+                        {sealedLetters.length !== 1 ? "s" : ""}
+                      </span>
+                      <EnvelopeIcon />
+                    </div>
+                  </div>
+
                   <button
+                    type="button"
                     onClick={goToCompose}
-                    className="px-6 py-2.5 rounded-lg text-white text-sm font-[family-name:--font-playfair] italic hover:opacity-90 transition"
-                    style={{ background: "#b83030" }}
+                    className="vault-compose-btn"
                   >
-                    Write a letter
+                    <span>Compose</span>
+                    <PencilIcon />
                   </button>
                 </div>
-              ) : (
-                <motion.div
-                  initial="hidden"
-                  animate="show"
-                  variants={{
-                    hidden: { opacity: 0 },
-                    show: {
-                      opacity: 1,
-                      transition: { staggerChildren: 0.06 },
-                    },
-                  }}
-                  className="grid gap-4"
-                  style={{
-                    gridTemplateColumns:
-                      "repeat(auto-fill, minmax(190px, 1fr))",
-                  }}
-                >
-                  {letters.map((letter) => (
+
+                {/* Divider */}
+                <div className="vault-divider mt-6 mb-8" />
+
+                {letters.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-16">
                     <motion.div
-                      key={letter.id}
-                      variants={{
-                        hidden: { opacity: 0, y: 20 },
-                        show: { opacity: 1, y: 0 },
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="text-6xl mb-6"
+                    >
+                      💌
+                    </motion.div>
+                    <h2
+                      className="text-2xl mb-2"
+                      style={{
+                        fontFamily: "var(--font-love-ya), cursive",
+                        color: "#5d1a17",
                       }}
                     >
-                      <EnvelopeView
-                        title={letter.title}
-                        date={new Date(
-                          letter.delivered_at || letter.created_at
-                        ).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                        })}
-                        stamp={letter.stamp_type}
-                        flower={letter.flower_type}
-                        isOpened={letter.is_opened}
-                        cardMode
-                        onOpen={() => openLetter(letter)}
-                      />
-                    </motion.div>
-                  ))}
-                </motion.div>
-              )}
+                      No letters yet
+                    </h2>
+                    <p className="text-[#7a3a32] text-sm max-w-xs mb-6">
+                      The desk awaits. Write your first letter and seal it with
+                      love.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={goToCompose}
+                      className="vault-compose-btn"
+                    >
+                      <span>Write a letter</span>
+                      <PencilIcon />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-12">
+                    {/* Sealed Letters */}
+                    {sealedLetters.length > 0 && (
+                      <section>
+                        <h2 className="vault-section-title">
+                          <span>
+                            {sealedLetters.length} Sealed Letter
+                            {sealedLetters.length !== 1 ? "s" : ""}
+                          </span>
+                          <EnvelopeIcon />
+                        </h2>
+                        <motion.div
+                          initial="hidden"
+                          animate="show"
+                          variants={{
+                            hidden: { opacity: 0 },
+                            show: {
+                              opacity: 1,
+                              transition: { staggerChildren: 0.05 },
+                            },
+                          }}
+                          className="vault-grid"
+                        >
+                          {sealedLetters.map((letter) => (
+                            <motion.div
+                              key={letter.id}
+                              variants={{
+                                hidden: { opacity: 0, y: 20 },
+                                show: { opacity: 1, y: 0 },
+                              }}
+                            >
+                              <EnvelopeView
+                                title={letter.title}
+                                date={fmtDate(
+                                  letter.delivered_at || letter.created_at
+                                )}
+                                stamp={letter.stamp_type}
+                                flower={letter.flower_type}
+                                isOpened={false}
+                                cardMode
+                                onOpen={() => openLetter(letter)}
+                              />
+                            </motion.div>
+                          ))}
+                        </motion.div>
+                      </section>
+                    )}
+
+                    {/* Unsealed Letters */}
+                    {unsealedLetters.length > 0 && (
+                      <section>
+                        <h2 className="vault-section-title">
+                          <span>Unsealed Letters</span>
+                          <EnvelopeIcon />
+                        </h2>
+                        <motion.div
+                          initial="hidden"
+                          animate="show"
+                          variants={{
+                            hidden: { opacity: 0 },
+                            show: {
+                              opacity: 1,
+                              transition: { staggerChildren: 0.05 },
+                            },
+                          }}
+                          className="vault-grid"
+                        >
+                          {unsealedLetters.map((letter) => (
+                            <motion.div
+                              key={letter.id}
+                              variants={{
+                                hidden: { opacity: 0, y: 20 },
+                                show: { opacity: 1, y: 0 },
+                              }}
+                            >
+                              <EnvelopeView
+                                title={letter.title}
+                                date={fmtDate(
+                                  letter.delivered_at || letter.created_at
+                                )}
+                                stamp={letter.stamp_type}
+                                flower={letter.flower_type}
+                                isOpened
+                                cardMode
+                                body={letter.body}
+                                fontStyle={letter.font_style}
+                                onOpen={() => openLetter(letter)}
+                              />
+                            </motion.div>
+                          ))}
+                        </motion.div>
+                      </section>
+                    )}
+                  </div>
+                )}
+              </div>
             </motion.div>
           )}
 
@@ -334,6 +605,8 @@ export function LoveLetterDesk({
                 stamp={activeLetter.stamp_type}
                 flower={activeLetter.flower_type}
                 isOpened={activeLetter.is_opened}
+                body={activeLetter.body}
+                fontStyle={activeLetter.font_style}
                 onOpen={handleOpenEnvelope}
               />
 
@@ -686,3 +959,57 @@ export function LoveLetterDesk({
     </div>
   );
 }
+
+// ── Small inline icons used in vault header / section labels ──
+
+function EnvelopeIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg
+      aria-hidden
+      width={size}
+      height={(size * 14) / 18}
+      viewBox="0 0 18 14"
+      fill="none"
+    >
+      <path
+        d="M2 2.5C2 1.67 2.67 1 3.5 1h11c.83 0 1.5.67 1.5 1.5v9c0 .83-.67 1.5-1.5 1.5h-11A1.5 1.5 0 0 1 2 11.5v-9Z"
+        fill="#5d1a17"
+      />
+      <path
+        d="M2.4 2.7 9 7.8l6.6-5.1"
+        stroke="#f5e9d4"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+function PencilIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      aria-hidden
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+    >
+      <path
+        d="M11.4 1.6a1.4 1.4 0 0 1 2 0l1 1a1.4 1.4 0 0 1 0 2l-7.5 7.5-3 .8.8-3 7.5-7.3Z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+        fill="rgba(245,233,212,0.15)"
+      />
+      <path
+        d="m10 3 2.7 2.7"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+

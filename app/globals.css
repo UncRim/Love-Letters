@@ -301,18 +301,48 @@ body {
    LOGIN — Split-Screen Design
    ═══════════════════════════════════════════════ */
 
-/* Corkboard texture */
-.corkboard-texture {
+/* Notebook-paper texture (right panel background) */
+.notebook-paper {
   background:
-    radial-gradient(ellipse 120% 100% at 50% 40%, #d4a855 0%, #b89040 40%, #a07828 80%, #8a6520 100%);
+    radial-gradient(ellipse 120% 90% at 50% 30%, #f1deaa 0%, #e6cf8b 50%, #d9bf72 100%);
 }
-.corkboard-grain {
+.notebook-rules {
   pointer-events: none;
-  opacity: 0.6;
   background-image:
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 31px,
+      rgba(120, 85, 30, 0.18) 31px,
+      rgba(120, 85, 30, 0.18) 32px
+    );
+  /* fade rules at top + bottom for softness */
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 8%, black 92%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, black 8%, black 92%, transparent 100%);
+}
+.notebook-grain {
+  pointer-events: none;
+  opacity: 0.35;
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
   background-size: 200px 200px;
   mix-blend-mode: multiply;
+}
+
+/* Handwritten quote (right panel) */
+.handwritten-quote {
+  font-family: var(--font-caveat), cursive;
+  font-size: 19px;
+  line-height: 1.45;
+  color: #4a3320;
+  text-align: center;
+}
+.handwritten-quote-attr {
+  font-family: var(--font-caveat), cursive;
+  font-size: 17px;
+  color: #6b5340;
+  text-align: center;
+  margin-top: 6px;
 }
 
 /* Login form fields */
@@ -419,63 +449,185 @@ body {
   .login-right-panel {
     display: none !important;
   }
+  .split-seam {
+    display: none !important;
+  }
 }
 
-/* Postage stamp frames */
+/* Dashed seam between the two split-screen panels.
+   Spec: 2px stroke width, 10px dashes (10px on / 10px off). */
+.split-seam {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-1px);
+  z-index: 20;
+  pointer-events: none;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(120, 85, 30, 0.45) 0,
+    rgba(120, 85, 30, 0.45) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  background-size: 2px 20px;
+  background-repeat: repeat-y;
+}
+
+/* Postage stamp — bare wrapper (the SVG asset already has its
+   own paper, image, and drop-shadow baked in). */
 .postage-stamp {
   position: relative;
-  width: 120px;
-  padding: 8px 8px 20px;
-  background: #faf8f2;
-  border-radius: 1px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15);
-  transition: transform 0.3s;
-  /* Perforated edge illusion */
-  background-image:
-    radial-gradient(circle at 0% 0%, transparent 3px, #faf8f2 3px),
-    radial-gradient(circle at 100% 0%, transparent 3px, #faf8f2 3px),
-    radial-gradient(circle at 0% 100%, transparent 3px, #faf8f2 3px),
-    radial-gradient(circle at 100% 100%, transparent 3px, #faf8f2 3px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 108px;
+  transition: transform 0.3s ease;
 }
 .postage-stamp:hover {
   transform: scale(1.06) rotate(-1deg) !important;
+  z-index: 20;
 }
 .postage-stamp-img {
-  width: 100%;
-  height: 80px;
-  object-fit: contain;
-}
-.postage-stamp-label {
+  height: 100%;
+  width: auto;
   display: block;
-  text-align: center;
-  font-family: var(--font-dm-sans), sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  margin-top: 6px;
+  pointer-events: none;
+  user-select: none;
 }
 
-/* Photo frames (stamp-edge style) */
-.photo-frame {
-  width: 130px;
-  height: 130px;
-  padding: 8px;
-  background: #faf5ec;
-  border-radius: 2px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25), 0 1px 4px rgba(0,0,0,0.15);
+/* Photo card — bare wrapper (the SVG asset already includes
+   the polaroid frame, drop-shadow, and base 17.85° tilt). */
+.photo-card {
+  position: absolute;
+  width: 180px;
   transition: transform 0.4s cubic-bezier(0.22,1,0.36,1);
-  /* Wavy stamp-style border */
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' rx='4' fill='white'/%3E%3C/svg%3E");
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' rx='4' fill='white'/%3E%3C/svg%3E");
+  transform-origin: center;
 }
-.photo-frame:hover {
-  transform: scale(1.08) rotate(0deg) !important;
+.photo-card:hover {
   z-index: 20 !important;
+  filter: brightness(1.04);
 }
-.photo-frame-img {
+.photo-card-img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 2px;
+  height: auto;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Pushpin (cleaner three-dimensional look) */
+.pushpin {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 -2px 3px rgba(0,0,0,0.35),
+    inset 0 2px 3px rgba(255,255,255,0.45),
+    0 2px 4px rgba(0,0,0,0.35);
+}
+
+/* ═══════════════════════════════════════════════
+   THE VAULT (home / letter inbox)
+   ═══════════════════════════════════════════════ */
+
+.vault-page {
+  /* Full-bleed warm-tan notebook surface */
+  background: radial-gradient(
+    ellipse 120% 90% at 50% 25%,
+    #efd9a2 0%,
+    #e6cd8a 55%,
+    #d8bd6f 100%
+  );
+}
+
+.vault-grain {
+  opacity: 0.4;
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+  background-size: 220px 220px;
+  mix-blend-mode: multiply;
+}
+
+.vault-title {
+  font-family: var(--font-love-ya), cursive;
+  font-size: clamp(34px, 4.4vw, 46px);
+  line-height: 1;
+  color: #5d1a17;
+  letter-spacing: 0.5px;
+}
+
+.vault-subtitle {
+  font-family: var(--font-love-ya), cursive;
+  font-size: 16px;
+  color: #5d1a17;
+  letter-spacing: 0.2px;
+}
+
+.vault-section-title {
+  font-family: var(--font-love-ya), cursive;
+  font-size: 20px;
+  color: #5d1a17;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.vault-divider {
+  height: 0;
+  border: 0;
+  border-top: 1.5px solid rgba(120, 75, 35, 0.35);
+}
+
+/* Compose CTA (deep claret pill) */
+.vault-compose-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 10px;
+  background: #5e1717;
+  color: #f5e9d4;
+  font-family: var(--font-love-ya), cursive;
+  font-size: 17px;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  border: 0;
+  box-shadow: 0 2px 6px rgba(50, 10, 10, 0.2);
+  transition: background 0.2s ease, transform 0.15s ease,
+    box-shadow 0.2s ease;
+}
+.vault-compose-btn:hover {
+  background: #4d1212;
+  box-shadow: 0 4px 12px rgba(50, 10, 10, 0.28);
+}
+.vault-compose-btn:active {
+  transform: scale(0.98);
+}
+
+/* Responsive grid of envelope cards */
+.vault-grid {
+  display: grid;
+  gap: 28px 24px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .vault-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .vault-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 420px) {
+  .vault-grid {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
 }

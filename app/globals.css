@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8f4ee;
+  --foreground: #3d2b1f;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Letter write-in animation (CSS fallback) */
+.letter-para {
+  opacity: 0;
+  animation: write-in 0.5s ease forwards;
+}
+
+.letter-para:nth-child(1) { animation-delay: 0.3s; }
+.letter-para:nth-child(2) { animation-delay: 0.65s; }
+.letter-para:nth-child(3) { animation-delay: 1.0s; }
+.letter-para:nth-child(4) { animation-delay: 1.35s; }
+.letter-para:nth-child(5) { animation-delay: 1.7s; }
+.letter-para:nth-child(6) { animation-delay: 2.05s; }
+
+@keyframes write-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+}
+
+/* Selection color */
+::selection {
+  background: rgba(180, 90, 90, 0.2);
+}

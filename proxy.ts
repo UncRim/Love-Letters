@@ -27,7 +27,6 @@ export async function proxy(request: NextRequest) {
       },
     });
 
-    // This refreshes the session if expired and writes updated cookies
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -40,6 +39,16 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/";
       return NextResponse.redirect(url);
+    }
+
+    // Author-only compose guard
+    if (user && request.nextUrl.pathname.startsWith("/compose")) {
+      const authorId = process.env.AUTHOR_USER_ID;
+      if (authorId && user.id !== authorId) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/vault";
+        return NextResponse.redirect(url);
+      }
     }
   } catch {
     // Supabase not configured — pass through

@@ -1,8 +1,8 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { LetterView } from "@/components/LetterView";
-import type { Letter } from "@/lib/constants";
+import { PAGE_SEPARATOR, type Letter } from "@/lib/constants";
 import { LetterOpener } from "./LetterOpener";
+import { LetterReader } from "./LetterReader";
 
 interface LetterPageProps {
   params: Promise<{ id: string }>;
@@ -31,13 +31,18 @@ export default async function LetterPage({ params }: LetterPageProps) {
 
   const typedLetter = letter as Letter;
 
-  if (typedLetter.recipient_id !== user.id && typedLetter.author_id !== user.id) {
+  if (
+    typedLetter.recipient_id !== user.id &&
+    typedLetter.author_id !== user.id
+  ) {
     notFound();
   }
 
   if (!typedLetter.is_opened && typedLetter.recipient_id === user.id) {
     return <LetterOpener letter={typedLetter} />;
   }
+
+  const pages = typedLetter.body.split(PAGE_SEPARATOR);
 
   return (
     <main className="flex-1 py-10 px-4">
@@ -49,12 +54,11 @@ export default async function LetterPage({ params }: LetterPageProps) {
           &larr; Back to vault
         </a>
       </div>
-      <LetterView
-        body={typedLetter.body}
+      <LetterReader
+        pages={pages}
         fontStyle={typedLetter.font_style}
         colorTheme={typedLetter.color_theme}
         deliveredAt={typedLetter.delivered_at || typedLetter.created_at}
-        title={typedLetter.title ?? undefined}
       />
     </main>
   );

@@ -9,19 +9,6 @@ interface VaultGridProps {
   letters: Letter[];
 }
 
-const container = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.08 },
-  },
-};
-
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
-};
-
 export function VaultGrid({ letters }: VaultGridProps) {
   const router = useRouter();
 
@@ -35,7 +22,7 @@ export function VaultGrid({ letters }: VaultGridProps) {
         >
           💌
         </motion.div>
-        <h2 className="text-xl font-medium text-stone-700 mb-2">
+        <h2 className="text-xl font-[family-name:--font-playfair] italic text-stone-700 mb-2">
           No letters yet
         </h2>
         <p className="text-stone-500 text-sm max-w-xs">
@@ -47,21 +34,36 @@ export function VaultGrid({ letters }: VaultGridProps) {
 
   return (
     <motion.div
-      variants={container}
       initial="hidden"
       animate="show"
-      className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-4"
+      variants={{
+        hidden: { opacity: 0 },
+        show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+      }}
+      className="grid gap-4 p-4"
+      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}
     >
       {letters.map((letter) => (
-        <motion.div key={letter.id} variants={item}>
+        <motion.div
+          key={letter.id}
+          variants={{
+            hidden: { opacity: 0, y: 20 },
+            show: { opacity: 1, y: 0 },
+          }}
+        >
           <EnvelopeView
             title={letter.title}
-            stampType={letter.stamp_type}
-            flowerType={letter.flower_type}
-            colorTheme={letter.color_theme}
+            date={new Date(
+              letter.delivered_at || letter.created_at
+            ).toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+            })}
+            stamp={letter.stamp_type}
+            flower={letter.flower_type}
             isOpened={letter.is_opened}
-            deliveredAt={letter.delivered_at}
-            onClick={() => router.push(`/letter/${letter.id}`)}
+            cardMode
+            onOpen={() => router.push(`/letter/${letter.id}`)}
           />
         </motion.div>
       ))}

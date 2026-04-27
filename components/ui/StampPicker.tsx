@@ -1,6 +1,11 @@
 "use client";
 
-import { STAMP_TYPES, STAMP_EMOJI, type StampType } from "@/lib/constants";
+import {
+  STAMP_TYPES,
+  STAMP_EMOJI,
+  STAMP_LABELS,
+  type StampType,
+} from "@/lib/constants";
 
 interface StampPickerProps {
   value: StampType;
@@ -9,30 +14,31 @@ interface StampPickerProps {
 
 export function StampPicker({ value, onChange }: StampPickerProps) {
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium text-stone-600">Stamp</label>
-      <div className="flex flex-wrap gap-2">
-        {STAMP_TYPES.map((stamp) => (
-          <button
-            key={stamp}
-            type="button"
-            onClick={() => onChange(stamp)}
-            className={`
-              px-3 py-2 rounded-lg text-sm border transition-all
-              ${
-                value === stamp
-                  ? "border-stone-400 bg-stone-100 shadow-sm"
-                  : "border-stone-200 hover:border-stone-300 bg-white"
-              }
-            `}
+    <section>
+      <p className="text-[10px] tracking-[0.1em] uppercase text-stone-500 mb-[9px]">
+        Stamp
+      </p>
+      <div className="grid grid-cols-4 gap-[5px]">
+        {STAMP_TYPES.map((s) => (
+          <div
+            key={s}
+            onClick={() => onChange(s)}
+            title={STAMP_LABELS[s]}
+            className="aspect-square rounded-[5px] flex items-center justify-center text-[17px] cursor-pointer transition-all"
+            style={{
+              border: `1.5px solid ${
+                value === s ? "#b8933a" : "transparent"
+              }`,
+              background:
+                value === s
+                  ? "rgba(184,147,58,0.08)"
+                  : "rgba(0,0,0,0.03)",
+            }}
           >
-            {STAMP_EMOJI[stamp] || "—"}{" "}
-            <span className="text-xs text-stone-500">
-              {stamp.replace(/_/g, " ")}
-            </span>
-          </button>
+            {STAMP_EMOJI[s]}
+          </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

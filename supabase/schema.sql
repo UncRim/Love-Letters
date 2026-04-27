@@ -20,9 +20,17 @@ create table public.letters (
 
   -- Delivery metadata
   stamp_type       text
-                     check (stamp_type in ('cherry_blossom','butterfly','moon','sparrow','none')),
+                     check (stamp_type in ('cherry_blossom','butterfly','moon','star','dove','letter','rose','sun')),
   flower_type      text
-                     check (flower_type in ('tulip','lavender','rose','daisy','forget_me_not','none')),
+                     check (flower_type in (
+                       'red_1','red_2','red_3','red_4',
+                       'purple_1','purple_2','purple_3','purple_4',
+                       'purple2_1','purple2_2','purple2_3','purple2_4',
+                       'orange_1','orange_2','orange_3','orange_4',
+                       'yellow_1','yellow_2','yellow_3',
+                       'white_1','white_2','white_3','white_4',
+                       'hasegawa_1','hasegawa_2','hasegawa_3','hasegawa_4'
+                     )),
 
   -- State
   is_draft         boolean not null default true,

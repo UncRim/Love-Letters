@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { EnvelopeView } from "@/components/EnvelopeView";
 import { LetterView } from "@/components/LetterView";
 import { createClient } from "@/lib/supabase/client";
-import type { Letter } from "@/lib/constants";
+import { PAGE_SEPARATOR, type Letter } from "@/lib/constants";
 
 interface LetterOpenerProps {
   letter: Letter;
@@ -16,6 +16,10 @@ export function LetterOpener({ letter }: LetterOpenerProps) {
   const router = useRouter();
   const [opened, setOpened] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [currentPage, setCurrentPage] = useState(0);
+  const [animKey, setAnimKey] = useState(0);
+
+  const pages = letter.body.split(PAGE_SEPARATOR);
 
   async function handleOpen() {
     const supabase = createClient();
@@ -25,11 +29,20 @@ export function LetterOpener({ letter }: LetterOpenerProps) {
       .eq("id", letter.id);
 
     setOpened(true);
+    setTimeout(() => setAnimKey((k) => k + 1), 950);
 
     startTransition(() => {
       router.refresh();
     });
   }
+
+  const formattedDate = new Date(
+    letter.delivered_at || letter.created_at
+  ).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 
   return (
     <main className="flex-1 py-10 px-4">
@@ -52,12 +65,11 @@ export function LetterOpener({ letter }: LetterOpenerProps) {
           >
             <EnvelopeView
               title={letter.title}
-              stampType={letter.stamp_type}
-              flowerType={letter.flower_type}
-              colorTheme={letter.color_theme}
+              date={formattedDate}
+              stamp={letter.stamp_type}
+              flower={letter.flower_type}
               isOpened={false}
-              deliveredAt={letter.delivered_at}
-              onClick={handleOpen}
+              onOpen={handleOpen}
             />
             <p className="text-center text-sm text-stone-400 mt-4 animate-pulse">
               Tap to open
@@ -71,11 +83,17 @@ export function LetterOpener({ letter }: LetterOpenerProps) {
             transition={{ delay: 0.3, duration: 0.6 }}
           >
             <LetterView
-              body={letter.body}
+              pages={pages}
               fontStyle={letter.font_style}
               colorTheme={letter.color_theme}
               deliveredAt={letter.delivered_at || letter.created_at}
-              title={letter.title ?? undefined}
+              currentPage={currentPage}
+              totalPages={pages.length}
+              onPageChange={(p) => {
+                setCurrentPage(p);
+                setAnimKey((k) => k + 1);
+              }}
+              animationKey={animKey}
             />
           </motion.div>
         )}

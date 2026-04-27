@@ -1,5 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { dancingScript, caveat, sacramento } from "@/lib/fonts";
+import {
+  dancingScript,
+  caveat,
+  sacramento,
+  playfairDisplay,
+  cormorantGaramond,
+  imFellEnglish,
+  jost,
+  loveYaLikeASister,
+  dmSans,
+} from "@/lib/fonts";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
@@ -29,7 +39,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${dancingScript.variable} ${caveat.variable} ${sacramento.variable} h-full antialiased`}
+      className={`${dancingScript.variable} ${caveat.variable} ${sacramento.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} ${imFellEnglish.variable} ${jost.variable} ${loveYaLikeASister.variable} ${dmSans.variable} h-full antialiased`}
     >
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.svg" />

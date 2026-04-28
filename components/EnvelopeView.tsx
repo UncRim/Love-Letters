@@ -6,6 +6,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FLOWER_IMAGE,
   PAGE_SEPARATOR,
+  STAMP_ART_PATH,
+  ENVELOPE_PREVIEW_BODY_MAX_CHARS,
+  ENVELOPE_PREVIEW_TITLE_MAX_CHARS,
   type StampType,
   type FlowerType,
   type FontStyle,
@@ -25,19 +28,6 @@ interface EnvelopeViewProps {
   /** Handwriting style for the paper preview. */
   fontStyle?: FontStyle;
 }
-
-// Stamps from /public/stamps/*.svg, indexed by available stamp_type values.
-// Some stamp_type strings are decorative emojis only; map best-fit landmarks for the rest.
-const STAMP_IMAGE: Partial<Record<StampType, string>> = {
-  cherry_blossom: "/stamps/eiffel.svg",
-  butterfly: "/stamps/big-ben.svg",
-  moon: "/stamps/liberty.svg",
-  star: "/stamps/eiffel.svg",
-  dove: "/stamps/big-ben.svg",
-  letter: "/stamps/egypt.svg",
-  rose: "/stamps/eiffel.svg",
-  sun: "/stamps/egypt.svg",
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Envelope geometry (opened-blank.svg, viewBox 326×346).
@@ -149,15 +139,16 @@ export function EnvelopeView({
             title={title}
             body={body}
             fontStyle={fontStyle}
+            stamp={null}
           />
         ) : (
-          <ClosedEnvelopeArt stamp={stamp} />
+          <ClosedEnvelopeArt stamp={null} />
         )}
 
-        {/* Caption: title + date (handwritten marker style) */}
-        <div className="mt-2 flex items-baseline justify-between gap-2 px-1">
+        {/* Caption: tighter to envelope; title larger than date */}
+        <div className="mt-2 flex flex-col items-center gap-0 px-2 pt-0.5">
           <p
-            className="truncate text-[14px] leading-tight"
+            className="truncate max-w-full text-[17px] leading-snug font-medium"
             style={{
               fontFamily: "var(--font-love-ya), cursive",
               color: "#5d1a17",
@@ -167,10 +158,10 @@ export function EnvelopeView({
             {title || "A letter for you"}
           </p>
           <p
-            className="shrink-0 text-[13px]"
+            className="text-[11px] leading-tight mt-0.5"
             style={{
               fontFamily: "var(--font-love-ya), cursive",
-              color: "#7a3a32",
+              color: "#9a5a52",
             }}
           >
             {date}
@@ -181,23 +172,34 @@ export function EnvelopeView({
   }
 
   // ─────────────────────────────────────
-  // Reading mode (large envelope on letter detail screen)
+  // Reading mode (large envelope on letter detail screen).
+  // The closed → opened transition uses a 3D rotateX on the closed
+  // envelope so the top edge "tips back" like a real flap unsealing,
+  // then the opened envelope fades up into place.
   // ─────────────────────────────────────
   return (
-    <div className="relative mx-auto" style={{ width: 320 }}>
+    <div
+      className="relative mx-auto"
+      style={{ width: 320, perspective: 900 }}
+    >
       <AnimatePresence mode="wait">
         {flipped || isOpened ? (
           <motion.div
             key="opened"
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+            initial={{ opacity: 0, scale: 0.94, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{
+              duration: 0.55,
+              ease: [0.22, 1, 0.36, 1],
+              delay: 0.08,
+            }}
           >
             <OpenedEnvelopeArt
               flower={flower}
               title={title}
               body={body}
               fontStyle={fontStyle}
+              stamp={null}
               large
             />
           </motion.div>
@@ -209,12 +211,13 @@ export function EnvelopeView({
               setFlipped(true);
               setTimeout(() => onOpen?.(), 600);
             }}
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.45 }}
-            className="block w-full bg-transparent border-0 p-0 cursor-pointer"
+            initial={{ opacity: 1, rotateX: 0 }}
+            exit={{ opacity: 0, rotateX: -85, y: -6 }}
+            transition={{ duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
+            style={{ transformOrigin: "50% 0%", transformStyle: "preserve-3d" }}
+            className="group block w-full bg-transparent border-0 p-0 cursor-pointer"
           >
-            <ClosedEnvelopeArt stamp={stamp} large />
+            <ClosedEnvelopeArt stamp={null} large />
           </motion.button>
         )}
       </AnimatePresence>
@@ -232,7 +235,7 @@ function ClosedEnvelopeArt({
   stamp: StampType | null;
   large?: boolean;
 }) {
-  const stampSrc = stamp ? STAMP_IMAGE[stamp] : null;
+  const stampSrc = stamp ? STAMP_ART_PATH[stamp] : null;
 
   return (
     <div
@@ -252,21 +255,21 @@ function ClosedEnvelopeArt({
         draggable={false}
       />
 
-      {/* Stamp overlay (top-left corner) */}
+      {/* Stamp overlay (top-left corner). Wiggles slightly on hover. */}
       {stampSrc && (
         <div
-          className="absolute"
+          className="absolute rotate-[-6deg] transition-transform duration-300 ease-out group-hover:-translate-y-[2px] group-hover:rotate-[-10deg]"
           style={{
             top: large ? "10%" : "9%",
             left: large ? "9%" : "8%",
             width: large ? 56 : 38,
             height: large ? 56 : 38,
+            transformOrigin: "center",
           }}
         >
           <div
             className="relative w-full h-full"
             style={{
-              transform: "rotate(-6deg)",
               filter:
                 "drop-shadow(0 1px 1px rgba(0,0,0,0.18)) drop-shadow(0 2px 4px rgba(0,0,0,0.10))",
             }}
@@ -291,37 +294,50 @@ function ClosedEnvelopeArt({
 // ─────────────────────────────────────
 //
 // Render order (bottom → top):
-//   1. base envelope SVG          (paper + V-flap drawn from the artwork)
-//   2. flower bouquet              (positioned upper-right, full-height stems)
-//   3. V-flap clip overlay         (duplicate SVG masked to the V-flap so
-//                                   flower stems & any other bleed disappear
-//                                   behind the front of the envelope)
-//   4. text overlay                (clipped to VISIBLE_PAPER_CLIP so words
-//                                   physically cannot land on the V-flap)
+//   1. base envelope SVG
+//   2. optional postage stamp (compose-only; null on vault cards & read screen)
+//   3. text (clipped to VISIBLE_PAPER_CLIP), z-8
+//   4. flower, z-15 (on top of text on the paper)
+//   5. V-flap duplicate clipped to flap polygon, z-22 (tucks stems; flap
+//      art above flower in that region only)
+//
+// Hover behaviour: the parent <motion.button> in cardMode adds the `group`
+// class, so the children below use Tailwind `group-hover:` utilities to
+// peek out of the envelope (paper rises a touch, flower rises a bit more).
 function OpenedEnvelopeArt({
   flower,
   title,
   body,
   fontStyle,
   large = false,
+  stamp = null,
+  previewCharLimit,
 }: {
   flower: FlowerType | null;
   title?: string | null;
   body?: string;
   fontStyle?: FontStyle;
   large?: boolean;
+  /** Postage mark on the envelope (same artwork as the sealed envelope). */
+  stamp?: StampType | null;
+  /** Override default body preview length (`ENVELOPE_PREVIEW_BODY_MAX_CHARS`). */
+  previewCharLimit?: number;
 }) {
   const flowerSrc = flower ? FLOWER_IMAGE[flower] : null;
+  const stampSrc = stamp ? STAMP_ART_PATH[stamp] : null;
 
-  // First page only — the rest is reserved for LetterView (full reader).
-  // Card mode shows a much shorter preview to match the small visible paper
-  // area in the vault grid.
   const firstPage = (body ?? "").split(PAGE_SEPARATOR)[0]?.trim() ?? "";
-  const previewLimit = large ? 320 : 90;
+  const bodyLimit = previewCharLimit ?? ENVELOPE_PREVIEW_BODY_MAX_CHARS;
   const preview =
-    firstPage.length > previewLimit
-      ? `${firstPage.slice(0, previewLimit).trimEnd()}…`
+    firstPage.length > bodyLimit
+      ? `${firstPage.slice(0, bodyLimit).trimEnd()}…`
       : firstPage;
+
+  const rawTitle = (title ?? "").trim();
+  const titleDisplay =
+    rawTitle.length > ENVELOPE_PREVIEW_TITLE_MAX_CHARS
+      ? `${rawTitle.slice(0, ENVELOPE_PREVIEW_TITLE_MAX_CHARS).trimEnd()}…`
+      : rawTitle;
 
   // `next/font/google` exposes loaded fonts via per-font className strings.
   // Using these guarantees the actual webfont (e.g. Caveat) is applied;
@@ -344,14 +360,101 @@ function OpenedEnvelopeArt({
         fill
         sizes={large ? "320px" : "(max-width: 768px) 50vw, 240px"}
         priority={large}
-        className="object-contain select-none"
+        className="object-contain select-none z-0"
         draggable={false}
       />
 
-      {/* 2. Flower bouquet (only when a flower is selected) ─────────────
-            Stems hang past the V-flap apex; the next layer hides them. */}
+      {/* Postage stamp (same corner treatment as the sealed envelope). */}
+      {stampSrc && (
+        <div
+          className="absolute z-[1] pointer-events-none rotate-[-6deg] transition-transform duration-300 ease-out group-hover:-translate-y-[2px] group-hover:rotate-[-10deg]"
+          style={{
+            top: large ? "10%" : "9%",
+            left: large ? "9%" : "8%",
+            width: large ? 56 : 38,
+            height: large ? 56 : 38,
+            transformOrigin: "center",
+          }}
+        >
+          <div
+            className="relative w-full h-full"
+            style={{
+              filter:
+                "drop-shadow(0 1px 1px rgba(0,0,0,0.18)) drop-shadow(0 2px 4px rgba(0,0,0,0.10))",
+            }}
+          >
+            <Image
+              src={stampSrc}
+              alt="Postage stamp"
+              fill
+              sizes="56px"
+              className="object-contain"
+              draggable={false}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 2. Text overlay clipped to the visible paper polygon ───────────
+            VISIBLE_PAPER_CLIP describes the exact region of the paper
+            that shows above the V-flap, so the text physically cannot
+            paint on the flap — even if the body wraps past the apex.
+            Lifts a touch on hover ("peeks" out of the envelope). */}
+      <div
+        className="absolute inset-0 z-[8] pointer-events-none transition-transform duration-300 ease-out group-hover:-translate-y-[3px]"
+        style={{
+          clipPath: VISIBLE_PAPER_CLIP,
+          WebkitClipPath: VISIBLE_PAPER_CLIP,
+        }}
+      >
+        <div
+          className={`absolute ${fontClassName}`}
+          style={{
+            left: PAPER_BOX.left,
+            top: PAPER_BOX.top,
+            width: PAPER_BOX.width,
+            height: PAPER_BOX.height,
+            transform: `rotate(${PAPER_TILT_DEG}deg)`,
+            transformOrigin: "0% 0%",
+            color: "#2a1c12",
+            fontSize: large ? 15.5 : 10.5,
+            lineHeight: 1.38,
+            letterSpacing: large ? 0.1 : 0.04,
+            wordBreak: "break-word",
+            whiteSpace: "pre-wrap",
+            overflow: "hidden",
+            padding: large ? "10px 12px 0" : "6px 7px 0",
+          }}
+        >
+          {titleDisplay ? (
+            <p
+              style={{
+                margin: 0,
+                marginBottom: large ? 7 : 3,
+                fontSize: large ? 17.5 : 12,
+                fontWeight: 600,
+                color: "#5d1a17",
+              }}
+            >
+              {titleDisplay}
+            </p>
+          ) : null}
+          {preview ? (
+            <span style={{ display: "block" }}>{preview}</span>
+          ) : (
+            <span style={{ opacity: 0.5 }}>
+              {large ? "An empty page…" : "…"}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* 4. Flower on top of text (still under the V-flap mask below). */}
       {flowerSrc && (
-        <div className="absolute pointer-events-none" style={FLOWER_BOX}>
+        <div
+          className="absolute z-[15] pointer-events-none transition-transform duration-300 ease-out group-hover:-translate-y-[7px] group-hover:rotate-[-1.5deg]"
+          style={FLOWER_BOX}
+        >
           <div
             className="relative w-full h-full"
             style={{
@@ -371,12 +474,9 @@ function OpenedEnvelopeArt({
         </div>
       )}
 
-      {/* 3. V-flap mask overlay ─────────────────────────────────────────
-            Duplicate of the envelope SVG clipped to *only* the V-flap.
-            Always rendered (not gated on flower) so it also acts as a
-            backstop hiding any rendering that lands on the V-flap face. */}
+      {/* 5. V-flap mask — above flower so stems/lower bouquet tuck under the flap */}
       <div
-        className="absolute inset-0 pointer-events-none"
+        className="absolute inset-0 z-[22] pointer-events-none"
         style={{
           clipPath: VFLAP_CLIP_PATH,
           WebkitClipPath: VFLAP_CLIP_PATH,
@@ -392,59 +492,35 @@ function OpenedEnvelopeArt({
           draggable={false}
         />
       </div>
+    </div>
+  );
+}
 
-      {/* 4. Text overlay clipped to the visible paper polygon ───────────
-            VISIBLE_PAPER_CLIP describes the exact region of the paper
-            that shows above the V-flap, so the text physically cannot
-            paint on the flap — even if the body wraps past the apex. */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          clipPath: VISIBLE_PAPER_CLIP,
-          WebkitClipPath: VISIBLE_PAPER_CLIP,
-        }}
-      >
-        <div
-          className={`absolute ${fontClassName}`}
-          style={{
-            left: PAPER_BOX.left,
-            top: PAPER_BOX.top,
-            width: PAPER_BOX.width,
-            height: PAPER_BOX.height,
-            transform: `rotate(${PAPER_TILT_DEG}deg)`,
-            transformOrigin: "0% 0%",
-            color: "#2a1c12",
-            fontSize: large ? 14 : 9,
-            lineHeight: 1.42,
-            letterSpacing: large ? 0.1 : 0.05,
-            wordBreak: "break-word",
-            whiteSpace: "pre-wrap",
-            overflow: "hidden",
-            padding: large ? "10px 12px 0" : "6px 7px 0",
-          }}
-        >
-          {title && (
-            <p
-              style={{
-                margin: 0,
-                marginBottom: large ? 8 : 3,
-                fontSize: large ? 16 : 10.5,
-                fontWeight: 600,
-                color: "#5d1a17",
-              }}
-            >
-              {title}
-            </p>
-          )}
-          {preview ? (
-            <span style={{ display: "block" }}>{preview}</span>
-          ) : (
-            <span style={{ opacity: 0.5 }}>
-              {large ? "An empty page…" : "…"}
-            </span>
-          )}
-        </div>
-      </div>
+/** Compose sidebar: same envelope art & caps as vault (no postage on read screen). */
+export function EnvelopeComposePreview({
+  title,
+  body,
+  fontStyle,
+  flower,
+}: {
+  title: string;
+  body: string;
+  fontStyle: FontStyle;
+  flower: FlowerType | null;
+}) {
+  return (
+    <div
+      className="group relative w-full mx-auto rounded-xl overflow-hidden ring-1 ring-[rgba(120,75,35,0.28)] shadow-[0_8px_28px_rgba(45,28,12,0.14)] bg-[#e8d8b4]/40"
+      style={{ maxWidth: 272 }}
+    >
+      <OpenedEnvelopeArt
+        title={title || null}
+        body={body}
+        fontStyle={fontStyle}
+        flower={flower}
+        stamp={null}
+        large
+      />
     </div>
   );
 }

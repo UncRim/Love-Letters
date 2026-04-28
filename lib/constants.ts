@@ -90,6 +90,26 @@ export const STAMP_LABELS: Record<StampType, string> = {
   sun: "Sun",
 };
 
+/** Landmark SVGs used on envelope art & compose previews (`/public/stamps`). */
+export const STAMP_ART_PATH: Record<StampType, string> = {
+  cherry_blossom: "/stamps/eiffel.svg",
+  butterfly: "/stamps/big-ben.svg",
+  moon: "/stamps/liberty.svg",
+  star: "/stamps/eiffel.svg",
+  dove: "/stamps/big-ben.svg",
+  letter: "/stamps/egypt.svg",
+  rose: "/stamps/eiffel.svg",
+  sun: "/stamps/egypt.svg",
+};
+
+/**
+ * Envelope mini-paper preview (vault cards, compose sidebar, read header):
+ * caps how much title/body render so copy stays inside the clipped polygon
+ * above the V-flap. Same limits app-wide.
+ */
+export const ENVELOPE_PREVIEW_BODY_MAX_CHARS = 82;
+export const ENVELOPE_PREVIEW_TITLE_MAX_CHARS = 38;
+
 export const THEME_CONFIG: Record<
   ColorTheme,
   {

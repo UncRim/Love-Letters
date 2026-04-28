@@ -2,10 +2,10 @@
 
 import { useState, useRef, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { EnvelopeView } from "./EnvelopeView";
+import { EnvelopeView, EnvelopeComposePreview } from "./EnvelopeView";
 import { LetterView } from "./LetterView";
-import { FlowerIcon } from "./FlowerIcon";
 import { StampPicker } from "./ui/StampPicker";
 import { FlowerPicker } from "./ui/FlowerPicker";
 import { createClient } from "@/lib/supabase/client";
@@ -14,7 +14,7 @@ import {
   THEME_CONFIG,
   FONT_META,
   PAGE_SEPARATOR,
-  STAMP_EMOJI,
+  STAMP_ART_PATH,
   type Letter,
   type FontStyle,
   type ColorTheme,
@@ -120,28 +120,43 @@ export function LoveLetterDesk({
 
   // ── Vault actions ──
 
+  // Marks a letter as opened in the DB and locally toggles the envelope
+  // open in the reading view. Extracted so both `openLetter` (auto-open
+  // for sealed letters in vault) and `handleOpenEnvelope` (manual opener
+  // already inside reading view) can share the same code path.
+  async function openEnvelopeRecord(letter: Letter) {
+    const supabase = createClient();
+    await supabase
+      .from("letters")
+      .update({ is_opened: true, opened_at: new Date().toISOString() })
+      .eq("id", letter.id);
+
+    setEnvelopeOpened(true);
+    setLetters((prev) =>
+      prev.map((l) => (l.id === letter.id ? { ...l, is_opened: true } : l))
+    );
+    setTimeout(() => setAnimKey((k) => k + 1), 950);
+  }
+
   function openLetter(letter: Letter) {
     setActiveLetter(letter);
     setEnvelopeOpened(letter.is_opened);
     setReadPage(0);
     setView("reading");
+
+    // Sealed letter: auto-trigger the unseal animation a moment after
+    // navigation so the user sees a brief "closed envelope" beat, then it
+    // pops open and the letter rises out — one click instead of two.
+    if (!letter.is_opened) {
+      setTimeout(() => {
+        void openEnvelopeRecord(letter);
+      }, 650);
+    }
   }
 
   async function handleOpenEnvelope() {
     if (!activeLetter) return;
-    const supabase = createClient();
-    await supabase
-      .from("letters")
-      .update({ is_opened: true, opened_at: new Date().toISOString() })
-      .eq("id", activeLetter.id);
-
-    setEnvelopeOpened(true);
-    setLetters((prev) =>
-      prev.map((l) =>
-        l.id === activeLetter.id ? { ...l, is_opened: true } : l
-      )
-    );
-    setTimeout(() => setAnimKey((k) => k + 1), 950);
+    await openEnvelopeRecord(activeLetter);
   }
 
   function goToVault() {
@@ -348,6 +363,7 @@ export function LoveLetterDesk({
   const marginColor = THEME_CONFIG[colorTheme].margin;
   const fontFamily = FONT_META[fontStyle].family;
   const pageContent = pages[curPage] ?? "";
+  const composePreviewBody = pages.join(PAGE_SEPARATOR);
 
   // ── Split letter body into pages for reading ──
 
@@ -379,7 +395,7 @@ export function LoveLetterDesk({
     <div className="flex-1 flex flex-col">
       {/* Header — hidden on the vault view, where the notebook page hosts its own header */}
       {view !== "vault" && (
-        <header className="px-6 py-5 border-b border-stone-200/60 flex items-center justify-between bg-[#f8f4ee]/80 backdrop-blur-sm sticky top-0 z-40">
+        <header className="px-6 py-5 border-b border-stone-200/60 flex items-center justify-between bg-[var(--brand-surface-header)] backdrop-blur-sm sticky top-0 z-40">
           <button onClick={goToVault} className="text-left group">
             <h1 className="text-xl font-[family-name:--font-playfair] italic text-stone-800 tracking-tight group-hover:text-stone-600 transition-colors">
               Love Letters
@@ -389,11 +405,29 @@ export function LoveLetterDesk({
             </p>
           </button>
 
+          {view === "compose" && (
+            <button
+              type="button"
+              onClick={handleSeal}
+              disabled={
+                saving ||
+                !title.trim() ||
+                pages.every((p) => !p.trim())
+              }
+              className="vault-compose-btn px-5 py-2.5 text-[16px] disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <span aria-hidden className="text-[15px] leading-none">
+                🕊
+              </span>
+              <span>{saving ? "Sending…" : saved ? "Sent ✓" : "Send"}</span>
+            </button>
+          )}
+
           {view !== "compose" && (
             <button
+              type="button"
               onClick={goToCompose}
-              className="px-5 py-2.5 rounded-lg text-white text-[13px] font-[family-name:--font-playfair] italic tracking-wide hover:opacity-90 transition shadow-sm"
-              style={{ background: "#b83030" }}
+              className="vault-compose-btn py-2.5 px-5 text-[15px]"
             >
               Compose ❧
             </button>
@@ -610,44 +644,50 @@ export function LoveLetterDesk({
                 onOpen={handleOpenEnvelope}
               />
 
-              {/* Tap hint */}
+              {/* Soft "opening…" hint that auto-disappears once the
+                  envelope unseals. The actual unseal is automatic — see
+                  openLetter(). Kept only as a subtle status indicator. */}
               {!envelopeOpened && (
-                <p
-                  onClick={handleOpenEnvelope}
-                  className="text-center text-[12px] text-stone-400 cursor-pointer mt-3 animate-pulse hover:text-stone-600"
-                >
-                  tap to unseal ↑
+                <p className="text-center text-[12px] text-stone-400 mt-3 animate-pulse">
+                  opening…
                 </p>
               )}
 
-              {/* Letter slides in */}
-              <div
-                className="mt-8 transition-all duration-500"
-                style={{
-                  opacity: envelopeOpened ? 1 : 0,
-                  transform: envelopeOpened
-                    ? "translateY(0)"
-                    : "translateY(14px)",
-                }}
-              >
+              {/* Letter rises out of the envelope when it opens. Starts
+                  small and tucked behind the envelope (translateY +60,
+                  scale 0.55), then springs up to full size — making it
+                  feel like a sheet of paper being pulled out by hand. */}
+              <AnimatePresence>
                 {envelopeOpened && (
-                  <LetterView
-                    pages={readPages}
-                    fontStyle={activeLetter.font_style}
-                    colorTheme={activeLetter.color_theme}
-                    deliveredAt={
-                      activeLetter.delivered_at || activeLetter.created_at
-                    }
-                    currentPage={readPage}
-                    totalPages={readPages.length}
-                    onPageChange={(p) => {
-                      setReadPage(p);
-                      setAnimKey((k) => k + 1);
+                  <motion.div
+                    key="letter-paper"
+                    initial={{ opacity: 0, y: 60, scale: 0.55 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 30, scale: 0.85 }}
+                    transition={{
+                      duration: 0.7,
+                      ease: [0.22, 1, 0.36, 1], // gentle "out-back" easing
                     }}
-                    animationKey={animKey}
-                  />
+                    className="mt-3 origin-top"
+                  >
+                    <LetterView
+                      pages={readPages}
+                      fontStyle={activeLetter.font_style}
+                      colorTheme={activeLetter.color_theme}
+                      deliveredAt={
+                        activeLetter.delivered_at || activeLetter.created_at
+                      }
+                      currentPage={readPage}
+                      totalPages={readPages.length}
+                      onPageChange={(p) => {
+                        setReadPage(p);
+                        setAnimKey((k) => k + 1);
+                      }}
+                      animationKey={animKey}
+                    />
+                  </motion.div>
                 )}
-              </div>
+              </AnimatePresence>
             </motion.div>
           )}
 
@@ -659,19 +699,24 @@ export function LoveLetterDesk({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
-              className="py-6 px-4"
+              className="py-8 px-4 sm:px-8 vault-page min-h-full"
             >
-              <div className="max-w-4xl mx-auto">
-                <div className="mb-6">
+              <div className="max-w-5xl mx-auto">
+                <div className="mb-7">
                   <button
                     onClick={goToVault}
-                    className="text-[12px] text-stone-500 hover:text-stone-700 transition"
+                    className="text-[12px] text-[#5d1a17]/70 hover:text-[#5d1a17] transition font-[family-name:var(--font-love-ya),cursive]"
                   >
                     ← back to vault
                   </button>
-                  <h2 className="text-[20px] font-[family-name:--font-playfair] italic text-stone-800 mt-3">
+                  <h2 className="vault-subtitle text-[clamp(22px,3vw,30px)] mt-3 leading-tight">
                     The Writer&apos;s Desk
                   </h2>
+                  <p className="text-[13px] text-[#5d1a17]/55 mt-1.5 max-w-xl">
+                    Stationery, flower, and handwriting update the preview.
+                    Postage shows on the notepad; the full letter is what you
+                    write on the pages below.
+                  </p>
                 </div>
 
                 {errorMsg && (
@@ -680,13 +725,10 @@ export function LoveLetterDesk({
                   </div>
                 )}
 
-                {/* Split-screen layout */}
-                <div
-                  className="grid gap-5"
-                  style={{ gridTemplateColumns: "1fr 272px" }}
-                >
+                {/* Split layout — stacks on narrow; xl row height = sidebar, paper stretches to match */}
+                <div className="grid gap-8 lg:gap-10 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(272px,300px)] xl:items-stretch">
                   {/* ── LEFT: Notebook Paper ── */}
-                  <div className="relative">
+                  <div className="relative min-h-[480px] h-full flex flex-col">
                     {/* Stacked paper shadow layers */}
                     <div
                       className="absolute rounded-[2px]"
@@ -710,10 +752,11 @@ export function LoveLetterDesk({
                     />
 
                     <div
-                      className="relative rounded-[2px] overflow-hidden min-h-[480px] paper-noise"
+                      className="relative flex flex-col flex-1 min-h-0 rounded-[3px] overflow-hidden paper-noise h-full min-h-[480px]"
                       style={{
                         background: paperBg,
-                        boxShadow: "0 2px 16px rgba(0,0,0,0.13)",
+                        boxShadow:
+                          "0 4px 22px rgba(40,28,18,0.11), 0 1px 3px rgba(40,28,18,0.06)",
                       }}
                     >
                       {/* Notebook lines */}
@@ -749,16 +792,54 @@ export function LoveLetterDesk({
                         ))}
                       </div>
 
-                      {/* Writing area */}
+                      {/* Stamp area — landmark art matches the sealed envelope */}
                       <div
-                        className="relative z-[3] pt-7 pb-6 pr-5"
+                        className="absolute z-[4] top-6 right-4 sm:right-6 flex flex-col items-center justify-center w-[58px] min-h-[72px] rounded-[4px] pointer-events-none px-1 py-2"
+                        style={{
+                          border: `1.5px dashed ${
+                            colorTheme === "midnight"
+                              ? "rgba(255,255,255,0.38)"
+                              : "rgba(90,62,40,0.42)"
+                          }`,
+                          background:
+                            colorTheme === "midnight"
+                              ? "rgba(0,0,0,0.14)"
+                              : "rgba(255,253,248,0.5)",
+                        }}
+                      >
+                        {stampType ? (
+                          <div className="relative w-12 h-12 rotate-[-8deg]">
+                            <Image
+                              src={STAMP_ART_PATH[stampType]}
+                              alt=""
+                              fill
+                              className="object-contain"
+                              sizes="48px"
+                            />
+                          </div>
+                        ) : (
+                          <span
+                            className={`text-[8px] uppercase tracking-[0.12em] text-center leading-tight px-0.5 ${
+                              colorTheme === "midnight"
+                                ? "text-stone-400"
+                                : "text-stone-500"
+                            }`}
+                          >
+                            Stamp here
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Writing area — grows so sheet matches sidebar height */}
+                      <div
+                        className="relative z-[3] flex flex-col flex-1 min-h-0 pt-7 pb-4 pr-5"
                         style={{ paddingLeft: 68 }}
                       >
                         <input
                           value={title}
                           onChange={(e) => setTitle(e.target.value)}
                           placeholder="Letter title..."
-                          className="w-full border-none bg-transparent outline-none text-[13px] block mb-5 tracking-wide placeholder:text-stone-400/50"
+                          className="w-full shrink-0 border-none bg-transparent outline-none text-[13px] block mb-4 tracking-wide placeholder:text-stone-400/50"
                           style={{
                             color: inkColor,
                             fontFamily,
@@ -770,9 +851,8 @@ export function LoveLetterDesk({
                           value={pageContent}
                           onChange={(e) => handleBodyChange(e.target.value)}
                           placeholder="Begin your letter here..."
-                          className="w-full border-none bg-transparent outline-none resize-none text-[17px] leading-[1.9] block placeholder:text-stone-400/40"
+                          className="w-full flex-1 min-h-[240px] border-none bg-transparent outline-none resize-none text-[17px] leading-[1.9] block placeholder:text-stone-400/40"
                           style={{
-                            minHeight: 340,
                             color: inkColor,
                             fontFamily,
                             caretColor: inkColor,
@@ -782,7 +862,7 @@ export function LoveLetterDesk({
 
                       {/* Page nav */}
                       <div
-                        className="flex items-center justify-between py-2 pr-5"
+                        className="flex shrink-0 items-center justify-between py-2 pr-5 mt-auto"
                         style={{
                           paddingLeft: 68,
                           borderTop: `0.5px solid ${
@@ -812,8 +892,25 @@ export function LoveLetterDesk({
                     </div>
                   </div>
 
-                  {/* ── RIGHT: Settings Panel ── */}
-                  <div className="rounded-xl p-[14px] flex flex-col gap-4 border border-stone-200/60 bg-white/70 backdrop-blur-sm self-start sticky top-24">
+                  {/* ── RIGHT: Preview first, then stationery & picks ── */}
+                  <div className="rounded-2xl p-4 flex flex-col gap-5 border border-[rgba(120,75,35,0.22)] bg-[#fefbf4]/94 backdrop-blur-md shadow-[0_6px_28px_rgba(45,28,12,0.08)] xl:sticky xl:top-24 xl:self-start">
+                    {/* Live preview — blank opened envelope (top of sidebar) */}
+                    <section className="pb-1 border-b border-[rgba(120,75,35,0.15)]">
+                      <p className="text-[10px] tracking-[0.12em] uppercase text-[#5d1a17]/65 mb-2">
+                        Preview
+                      </p>
+                      <p className="text-[11px] text-stone-600/90 mb-3 leading-snug">
+                        First lines only (same cap as vault cards). Longer text
+                        stays on your pages.
+                      </p>
+                      <EnvelopeComposePreview
+                        title={title}
+                        body={composePreviewBody}
+                        fontStyle={fontStyle}
+                        flower={flowerType}
+                      />
+                    </section>
+
                     {/* Stationery Picker */}
                     <section>
                       <p className="text-[10px] tracking-[0.1em] uppercase text-stone-500 mb-[9px]">
@@ -907,47 +1004,25 @@ export function LoveLetterDesk({
                       />
                     </section>
 
-                    {/* Envelope Preview */}
-                    <section className="pt-1">
-                      <p className="text-[10px] tracking-[0.1em] uppercase text-stone-500 mb-[9px]">
-                        Preview
-                      </p>
-                      <div className="relative h-[90px] rounded-sm overflow-hidden" style={{ background: "#f0e0c0" }}>
-                        <div className="absolute inset-0" style={{ clipPath: "polygon(0 0, 48% 50%, 0 100%)", background: "#e8d8b0" }} />
-                        <div className="absolute inset-0" style={{ clipPath: "polygon(100% 0, 52% 50%, 100% 100%)", background: "#e8d8b0" }} />
-                        <div className="absolute inset-0" style={{ clipPath: "polygon(0 100%, 50% 52%, 100% 100%)", background: "#dcc8a0" }} />
-                        <div className="absolute inset-0" style={{ clipPath: "polygon(0 0, 100% 0, 50% 100%)", background: "#ddc890", height: "54%" }} />
-                        {stampType && (
-                          <div className="absolute flex items-center justify-center" style={{ top: 5, right: 5, width: 18, height: 22, background: "#f5e8c8", border: "1px solid #b8933a", zIndex: 10, fontSize: 10 }}>
-                            {STAMP_EMOJI[stampType]}
-                          </div>
-                        )}
-                        <div className="absolute" style={{ top: "50%", left: "50%", transform: "translate(-50%,-42%)", zIndex: 10 }}>
-                          <FlowerIcon type={flowerType} size={18} />
-                        </div>
-                        <div className="absolute" style={{ bottom: 6, left: 6, zIndex: 10 }}>
-                          <p className="font-[family-name:--font-playfair] italic text-[8px] text-[#5a3e28] truncate max-w-[100px]">
-                            {title || "Untitled"}
-                          </p>
-                        </div>
-                      </div>
-                    </section>
-
                     {/* Seal & Send */}
                     <button
                       onClick={handleSeal}
-                      disabled={saving || !title.trim()}
-                      className="w-full rounded-lg py-[11px] text-white text-[13px] transition-all disabled:opacity-40 font-[family-name:--font-playfair] italic tracking-wide cursor-pointer hover:opacity-90"
+                      disabled={
+                        saving ||
+                        !title.trim() ||
+                        pages.every((p) => !p.trim())
+                      }
+                      className="w-full rounded-xl py-[12px] text-white text-[14px] transition-all disabled:opacity-40 disabled:pointer-events-none font-[family-name:var(--font-love-ya),cursive] tracking-wide cursor-pointer hover:opacity-90 shadow-md"
                       style={{
-                        background: saved ? "#2e7d4f" : "#b83030",
+                        background: saved ? "#2e7d4f" : "var(--brand-claret)",
                         letterSpacing: "0.04em",
                       }}
                     >
                       {saving
-                        ? "Sealing..."
+                        ? "Sealing…"
                         : saved
                           ? "Sealed ✓"
-                          : "Seal & Send ❧"}
+                          : "Seal & send ❧"}
                     </button>
                   </div>
                 </div>

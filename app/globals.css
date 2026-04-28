@@ -3,6 +3,9 @@
 :root {
   --background: #f8f4ee;
   --foreground: #3d2b1f;
+  --brand-claret: #5e1717;
+  --brand-claret-hover: #4d1212;
+  --brand-surface-header: rgba(254, 251, 244, 0.92);
 }
 
 @theme inline {
@@ -590,7 +593,7 @@ body {
   gap: 8px;
   padding: 11px 20px;
   border-radius: 10px;
-  background: #5e1717;
+  background: var(--brand-claret);
   color: #f5e9d4;
   font-family: var(--font-love-ya), cursive;
   font-size: 17px;
@@ -602,7 +605,7 @@ body {
     box-shadow 0.2s ease;
 }
 .vault-compose-btn:hover {
-  background: #4d1212;
+  background: var(--brand-claret-hover);
   box-shadow: 0 4px 12px rgba(50, 10, 10, 0.28);
 }
 .vault-compose-btn:active {

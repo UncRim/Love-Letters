@@ -398,7 +398,7 @@ export function ComposerForm({ userId }: ComposerFormProps) {
           disabled={saving || !title.trim() || isPending}
           className="w-full rounded-lg py-[11px] text-white text-[13px] transition-all disabled:opacity-40 font-[family-name:--font-playfair] italic tracking-wide cursor-pointer hover:opacity-90"
           style={{
-            background: saved ? "#2e7d4f" : "#b83030",
+            background: saved ? "#2e7d4f" : "var(--brand-claret)",
             letterSpacing: "0.04em",
           }}
         >

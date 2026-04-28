@@ -39,30 +39,84 @@ const STAMP_IMAGE: Partial<Record<StampType, string>> = {
   sun: "/stamps/egypt.svg",
 };
 
-// Flower position inside the opened envelope SVG (326×346 viewBox).
+// ─────────────────────────────────────────────────────────────────────────────
+// Envelope geometry (opened-blank.svg, viewBox 326×346).
 //
-// The bouquet sits on the right side of the envelope. Its head should peek
-// up over the V-flap apex (around y ≈ 44%) while its stems slide down behind
-// the flap. We give it enough vertical range so the entire bouquet PNG fits
-// at a natural size without being squashed.
-const FLOWER_BOX = {
-  left: "54%", //  envelope x ≈ 176
-  top: "16%", //   envelope y ≈ 55  (a hair below the envelope's top edge)
-  width: "38%", //  right edge ≈ envelope x = 92%  (snug against right edge)
-  height: "62%", //  bottom    ≈ envelope y = 78%  (just past V-flap base)
+// All coordinates are pulled directly from the SVG path data so the overlays
+// line up pixel-perfectly with the artwork.
+//
+//   Paper (white letter sheet, parallelogram tilted ≈ 5°):
+//     TL ( 82.30,   2.42)   →  25.25%, 0.70%
+//     TR (254.50,  17.48)   →  78.07%, 5.05%
+//     BR (236.98, 217.70)   →  72.69%, 62.92%
+//     BL ( 64.83, 202.60)   →  19.89%, 58.55%
+//
+//   V-flap (front triangle of the envelope, with rounded apex):
+//     LB    (24.42, 265.03) → 7.49%,  76.59%
+//     L_ELB (147.39, 161.58)→ 45.21%, 46.70%
+//     APEX_L(158.71, 153.77)→ 48.68%, 44.44%
+//     APEX_R(167.01, 153.77)→ 51.23%, 44.44%
+//     R_ELB (178.36, 161.58)→ 54.71%, 46.70%
+//     RB    (301.30, 265.03)→ 92.43%, 76.59%
+//
+// Visible-paper polygon = paper rect ∩ (above V-flap top edge).
+// Found by intersecting:
+//   • paper right edge  (254.5,17.48)→(236.98,217.7)  with
+//     V-flap right segment (178.36,161.58)→(301.30,265.03)
+//     → (237.54, 211.38)  →  72.86%, 61.09%
+//   • paper bottom edge (64.83,202.6)→(236.98,217.7)  with
+//     V-flap left segment  (147.39,161.58)→(24.42,265.03)
+//     →  (95.42, 205.30)  →  29.27%, 59.34%
+//
+// Walking the visible-paper boundary clockwise from paper TL:
+//   1. paper TL              25.25%, 0.70%
+//   2. paper TR              78.07%, 5.05%
+//   3. paper R ∩ V-flap R    72.86%, 61.09%
+//   4. V-flap right elbow    54.71%, 46.70%
+//   5. V-flap apex right     51.23%, 44.44%
+//   6. V-flap apex left      48.68%, 44.44%
+//   7. V-flap left elbow     45.21%, 46.70%
+//   8. V-flap L ∩ paper bot. 29.27%, 59.34%
+//   9. paper BL              19.89%, 58.55%
+//
+// This polygon is what we clip the text overlay to so words can never
+// paint on the V-flap face.
+// ─────────────────────────────────────────────────────────────────────────────
+const VISIBLE_PAPER_CLIP =
+  "polygon(25.25% 0.70%, 78.07% 5.05%, 72.86% 61.09%, 54.71% 46.70%, 51.23% 44.44%, 48.68% 44.44%, 45.21% 46.70%, 29.27% 59.34%, 19.89% 58.55%)";
+
+// V-flap polygon (front face of the envelope), traced from the same path.
+// Used both to mask flower stems and as a defensive top layer that hides
+// any rendering bleed below the V-flap apex.
+const VFLAP_CLIP_PATH =
+  "polygon(7.49% 76.59%, 45.21% 46.70%, 48.68% 44.44%, 51.23% 44.44%, 54.71% 46.70%, 92.43% 76.59%)";
+
+// The paper sheet is rotated ≈ 5° clockwise relative to the envelope; we
+// tilt the text frame the same amount so handwriting follows the paper.
+const PAPER_TILT_DEG = 5;
+
+// Text frame anchored to the paper rectangle. The frame is intentionally
+// generous; anything that would land past the V-flap apex is hard-clipped
+// by VISIBLE_PAPER_CLIP, so we don't have to reason about exact bottom edges.
+//   left/top   ≈ paper TL + small inset
+//   width      ≈ paper width minus side margins
+//   height     ≈ full paper height (clip handles the V cut)
+const PAPER_BOX = {
+  left: "27.6%", //   ≈ x  90 / 326
+  top: "3.5%", //     ≈ y  12 / 346
+  width: "47.0%", //  ≈ 153 / 326   (paper TR.x ≈ 254 → right margin ≈ 11)
+  height: "55.0%", // ≈ 190 / 346   (clip removes anything past the V apex)
 };
 
-// V-flap polygon (the front face of the envelope) in viewBox %.
-// We render a second copy of the envelope SVG clipped to JUST this polygon
-// and layer it ABOVE the flower. That way the bottom half of the bouquet
-// gets visually covered by the flap, making it look like the flower is
-// tucked inside the envelope rather than glued on top of it.
-//
-// Vertices traced from the V-flap path in opened-blank.svg:
-//   (24.42, 265) (147.38, 161.59) (158.71, 153.77)
-//   (167.01, 153.77) (178.34, 161.59) (301.30, 265)
-const VFLAP_CLIP_PATH =
-  "polygon(7.49% 76.59%, 45.21% 46.7%, 48.68% 44.44%, 51.23% 44.44%, 54.71% 46.7%, 92.43% 76.59%)";
+// Bouquet sits to the right of the paper. Its head peeks above the V-flap
+// apex, its stems slide down past the apex and are visually masked by the
+// V-flap overlay layered on top.
+const FLOWER_BOX = {
+  left: "53%", //  envelope x ≈ 173
+  top: "10%", //   envelope y ≈ 35
+  width: "39%", //  right edge ≈ 92%
+  height: "60%", // bottom ≈ y=208 (well into the V-flap face)
+};
 
 export function EnvelopeView({
   title,
@@ -235,29 +289,15 @@ function ClosedEnvelopeArt({
 // ─────────────────────────────────────
 // Opened envelope (uses opened-blank.svg + dynamic flower overlay)
 // ─────────────────────────────────────
-
-// Letter-paper rectangle inside opened-blank.svg (326×346 viewBox).
-// Derived from the white paper path corners (paper is tilted ~5° clockwise):
-//   top-left  ≈ ( 89.14,   2.31)
-//   top-right ≈ (247.82,  16.19)
-//   bot-right ≈ (250.48, 200.79)
-//   bot-left  ≈ ( 71.50, 203.94)
-// The bottom of the paper is hidden behind the V-shaped envelope flap
-// (V-apex at ~y=153.77 ≈ 44.4%). Our text overlay must therefore stay
-// inside the band y≈12 → y≈140 so it never bleeds onto the V-flap face.
 //
-// We also use NO rotation on the overlay itself: the slight 5° paper tilt
-// is barely perceptible at thumbnail size, and rotating the overlay was
-// pushing the bottom corners across the V-flap apex (where text would
-// then read on top of the flap, looking duplicated/messy).
-const PAPER_BOX = {
-  centerLeft: `${(167 / 326) * 100}%`, //   51.23%
-  centerTop: `${(74 / 346) * 100}%`, //     21.39%
-  width: `${(132 / 326) * 100}%`, //        40.49%
-  height: `${(108 / 346) * 100}%`, //       31.21%   (bottom ≈ y=128, above V-flap apex)
-  rotation: 0,
-};
-
+// Render order (bottom → top):
+//   1. base envelope SVG          (paper + V-flap drawn from the artwork)
+//   2. flower bouquet              (positioned upper-right, full-height stems)
+//   3. V-flap clip overlay         (duplicate SVG masked to the V-flap so
+//                                   flower stems & any other bleed disappear
+//                                   behind the front of the envelope)
+//   4. text overlay                (clipped to VISIBLE_PAPER_CLIP so words
+//                                   physically cannot land on the V-flap)
 function OpenedEnvelopeArt({
   flower,
   title,
@@ -274,11 +314,10 @@ function OpenedEnvelopeArt({
   const flowerSrc = flower ? FLOWER_IMAGE[flower] : null;
 
   // First page only — the rest is reserved for LetterView (full reader).
-  // Card mode shows a much shorter preview because the visible paper above
-  // the V-flap is small; long bodies would wrap past the box and bleed onto
-  // the flap itself.
+  // Card mode shows a much shorter preview to match the small visible paper
+  // area in the vault grid.
   const firstPage = (body ?? "").split(PAGE_SEPARATOR)[0]?.trim() ?? "";
-  const previewLimit = large ? 320 : 75;
+  const previewLimit = large ? 320 : 90;
   const preview =
     firstPage.length > previewLimit
       ? `${firstPage.slice(0, previewLimit).trimEnd()}…`
@@ -298,6 +337,7 @@ function OpenedEnvelopeArt({
         aspectRatio: "326 / 346",
       }}
     >
+      {/* 1. Base envelope artwork ─────────────────────────────────────── */}
       <Image
         src="/envelopes/opened-blank.svg"
         alt="Opened envelope with letter"
@@ -308,64 +348,10 @@ function OpenedEnvelopeArt({
         draggable={false}
       />
 
-      {/* Letter text overlay — sits directly on the SVG paper (no extra
-          card / background) so the text reads as if it were handwritten on
-          the same sheet of paper drawn in opened-blank.svg. */}
-      <div
-        className={`absolute pointer-events-none overflow-hidden ${fontClassName}`}
-        style={{
-          left: PAPER_BOX.centerLeft,
-          top: PAPER_BOX.centerTop,
-          width: PAPER_BOX.width,
-          height: PAPER_BOX.height,
-          transform: `translate(-50%, -50%) rotate(${PAPER_BOX.rotation}deg)`,
-          transformOrigin: "center",
-        }}
-      >
-        <div
-          style={{
-            padding: large ? "14px 12px 10px" : "8px 7px 6px",
-            color: "#2a1c12",
-            fontSize: large ? 14 : 8.5,
-            lineHeight: 1.4,
-            letterSpacing: large ? 0.1 : 0.05,
-            wordBreak: "break-word",
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {title && (
-            <p
-              style={{
-                margin: 0,
-                marginBottom: large ? 8 : 4,
-                fontSize: large ? 16 : 10,
-                fontWeight: 600,
-                color: "#5d1a17",
-              }}
-            >
-              {title}
-            </p>
-          )}
-          {preview ? (
-            <span style={{ display: "block" }}>{preview}</span>
-          ) : (
-            <span style={{ opacity: 0.5 }}>
-              {large ? "An empty page…" : "…"}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Dynamic flower bouquet — rendered between the envelope back/paper
-          and the V-flap so it appears tucked INSIDE the envelope. The
-          actual "tucking" is done by the V-flap layer below, which is a
-          duplicate of the envelope SVG clipped to just the V-flap polygon
-          and stacked on top of the flower. */}
+      {/* 2. Flower bouquet (only when a flower is selected) ─────────────
+            Stems hang past the V-flap apex; the next layer hides them. */}
       {flowerSrc && (
-        <div
-          className="absolute pointer-events-none"
-          style={FLOWER_BOX}
-        >
+        <div className="absolute pointer-events-none" style={FLOWER_BOX}>
           <div
             className="relative w-full h-full"
             style={{
@@ -385,29 +371,80 @@ function OpenedEnvelopeArt({
         </div>
       )}
 
-      {/* V-flap-only overlay: a second copy of the envelope SVG clipped to
-          just the V-flap polygon. Layered on TOP of the flower so the lower
-          half of the bouquet is hidden behind the flap, preserving the
-          illusion that the flower sits inside the envelope. */}
-      {flowerSrc && (
+      {/* 3. V-flap mask overlay ─────────────────────────────────────────
+            Duplicate of the envelope SVG clipped to *only* the V-flap.
+            Always rendered (not gated on flower) so it also acts as a
+            backstop hiding any rendering that lands on the V-flap face. */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          clipPath: VFLAP_CLIP_PATH,
+          WebkitClipPath: VFLAP_CLIP_PATH,
+        }}
+      >
+        <Image
+          src="/envelopes/opened-blank.svg"
+          alt=""
+          fill
+          sizes={large ? "320px" : "(max-width: 768px) 50vw, 240px"}
+          className="object-contain select-none"
+          aria-hidden
+          draggable={false}
+        />
+      </div>
+
+      {/* 4. Text overlay clipped to the visible paper polygon ───────────
+            VISIBLE_PAPER_CLIP describes the exact region of the paper
+            that shows above the V-flap, so the text physically cannot
+            paint on the flap — even if the body wraps past the apex. */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          clipPath: VISIBLE_PAPER_CLIP,
+          WebkitClipPath: VISIBLE_PAPER_CLIP,
+        }}
+      >
         <div
-          className="absolute inset-0 pointer-events-none"
+          className={`absolute ${fontClassName}`}
           style={{
-            clipPath: VFLAP_CLIP_PATH,
-            WebkitClipPath: VFLAP_CLIP_PATH,
+            left: PAPER_BOX.left,
+            top: PAPER_BOX.top,
+            width: PAPER_BOX.width,
+            height: PAPER_BOX.height,
+            transform: `rotate(${PAPER_TILT_DEG}deg)`,
+            transformOrigin: "0% 0%",
+            color: "#2a1c12",
+            fontSize: large ? 14 : 9,
+            lineHeight: 1.42,
+            letterSpacing: large ? 0.1 : 0.05,
+            wordBreak: "break-word",
+            whiteSpace: "pre-wrap",
+            overflow: "hidden",
+            padding: large ? "10px 12px 0" : "6px 7px 0",
           }}
         >
-          <Image
-            src="/envelopes/opened-blank.svg"
-            alt=""
-            fill
-            sizes={large ? "320px" : "(max-width: 768px) 50vw, 240px"}
-            className="object-contain select-none"
-            aria-hidden
-            draggable={false}
-          />
+          {title && (
+            <p
+              style={{
+                margin: 0,
+                marginBottom: large ? 8 : 3,
+                fontSize: large ? 16 : 10.5,
+                fontWeight: 600,
+                color: "#5d1a17",
+              }}
+            >
+              {title}
+            </p>
+          )}
+          {preview ? (
+            <span style={{ display: "block" }}>{preview}</span>
+          ) : (
+            <span style={{ opacity: 0.5 }}>
+              {large ? "An empty page…" : "…"}
+            </span>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

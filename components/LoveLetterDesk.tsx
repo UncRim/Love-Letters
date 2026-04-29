@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { EnvelopeView, EnvelopeComposePreview } from "./EnvelopeView";
 import { LetterView } from "./LetterView";
 import { StampPicker } from "./ui/StampPicker";
+import { BrandLogo } from "./BrandLogo";
 import { FlowerPicker } from "./ui/FlowerPicker";
 import { createClient } from "@/lib/supabase/client";
 import { FONT_CLASSNAMES } from "@/lib/fonts";
@@ -95,7 +96,7 @@ export function LoveLetterDesk({
   const [curPage, setCurPage] = useState(0);
   const [fontStyle, setFontStyle] = useState<FontStyle>("dancing_script");
   const [colorTheme, setColorTheme] = useState<ColorTheme>("vintage");
-  const [stampType, setStampType] = useState<StampType>("cherry_blossom");
+  const [stampType, setStampType] = useState<StampType | null>(null);
   const [flowerType, setFlowerType] = useState<FlowerType>("red_1");
   const [recipientId, setRecipientId] = useState(userId);
   const [saving, setSaving] = useState(false);
@@ -110,7 +111,7 @@ export function LoveLetterDesk({
     setCurPage(0);
     setFontStyle("dancing_script");
     setColorTheme("vintage");
-    setStampType("cherry_blossom");
+    setStampType(null);
     setFlowerType("red_1");
     setRecipientId(userId);
     setSaving(false);
@@ -392,51 +393,44 @@ export function LoveLetterDesk({
     });
 
   return (
-    <div className="flex-1 flex flex-col">
-      {/* Header — hidden on the vault view, where the notebook page hosts its own header */}
-      {view !== "vault" && (
-        <header className="px-6 py-5 border-b border-stone-200/60 flex items-center justify-between bg-[var(--brand-surface-header)] backdrop-blur-sm sticky top-0 z-40">
-          <button onClick={goToVault} className="text-left group">
-            <h1 className="text-xl font-[family-name:--font-playfair] italic text-stone-800 tracking-tight group-hover:text-stone-600 transition-colors">
-              Love Letters
-            </h1>
-            <p className="text-[11px] text-stone-400 mt-0.5">
-              {letters.length} letter{letters.length !== 1 ? "s" : ""} sealed
-            </p>
+    <div className="flex-1 flex flex-col min-h-0">
+      <header className="desk-header sticky top-0 z-40 shrink-0">
+        <button type="button" onClick={goToVault} className="text-left group min-w-0">
+          <span className="inline-block transition-opacity group-hover:opacity-[0.88]">
+            <BrandLogo size="desk" />
+          </span>
+        </button>
+
+        {view === "compose" ? (
+          <button
+            type="button"
+            onClick={handleSeal}
+            disabled={
+              saving ||
+              !title.trim() ||
+              pages.every((p) => !p.trim())
+            }
+            className="vault-compose-btn shrink-0 px-5 py-2.5 text-[16px] disabled:opacity-40 disabled:pointer-events-none"
+          >
+            <span aria-hidden className="text-[15px] leading-none">
+              🕊
+            </span>
+            <span>{saving ? "Sending…" : saved ? "Sent ✓" : "Send"}</span>
           </button>
-
-          {view === "compose" && (
-            <button
-              type="button"
-              onClick={handleSeal}
-              disabled={
-                saving ||
-                !title.trim() ||
-                pages.every((p) => !p.trim())
-              }
-              className="vault-compose-btn px-5 py-2.5 text-[16px] disabled:opacity-40 disabled:pointer-events-none"
-            >
-              <span aria-hidden className="text-[15px] leading-none">
-                🕊
-              </span>
-              <span>{saving ? "Sending…" : saved ? "Sent ✓" : "Send"}</span>
-            </button>
-          )}
-
-          {view !== "compose" && (
-            <button
-              type="button"
-              onClick={goToCompose}
-              className="vault-compose-btn py-2.5 px-5 text-[15px]"
-            >
-              Compose ❧
-            </button>
-          )}
-        </header>
-      )}
+        ) : (
+          <button
+            type="button"
+            onClick={goToCompose}
+            className="vault-compose-btn shrink-0 py-2.5 px-5 text-[15px]"
+          >
+            <span>Compose</span>
+            <PencilIcon />
+          </button>
+        )}
+      </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         <AnimatePresence mode="wait">
           {/* ────── VAULT VIEW ────── */}
           {view === "vault" && (
@@ -446,13 +440,12 @@ export function LoveLetterDesk({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
-              className="vault-page relative min-h-full notebook-paper"
+              className="desk-canvas vault-page relative min-h-full"
             >
-              {/* Subtle paper grain */}
               <div className="vault-grain pointer-events-none absolute inset-0" />
 
               <div className="relative max-w-7xl mx-auto px-6 sm:px-10 py-8">
-                {/* Header */}
+                {/* Page title — Compose lives in the sticky desk header */}
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div>
                     <h1 className="vault-title">The&nbsp;Vault</h1>
@@ -464,15 +457,6 @@ export function LoveLetterDesk({
                       <EnvelopeIcon />
                     </div>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={goToCompose}
-                    className="vault-compose-btn"
-                  >
-                    <span>Compose</span>
-                    <PencilIcon />
-                  </button>
                 </div>
 
                 {/* Divider */}
@@ -617,81 +601,86 @@ export function LoveLetterDesk({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.35 }}
-              className="max-w-lg mx-auto px-4 py-6"
+              className="desk-canvas vault-page relative min-h-full"
             >
-              <button
-                onClick={goToVault}
-                className="text-[12px] text-stone-500 mb-5 inline-flex items-center gap-1 cursor-pointer hover:text-stone-700 transition-colors"
-              >
-                ← back to vault
-              </button>
+              <div className="vault-grain pointer-events-none absolute inset-0" />
+              <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-6">
+                <button
+                  type="button"
+                  onClick={goToVault}
+                  className="desk-back-link mb-5"
+                >
+                  <span aria-hidden>←</span>
+                  Back to vault
+                </button>
 
-              {/* Envelope */}
-              <EnvelopeView
-                title={activeLetter.title}
-                date={new Date(
-                  activeLetter.delivered_at || activeLetter.created_at
-                ).toLocaleDateString("en-GB", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })}
-                stamp={activeLetter.stamp_type}
-                flower={activeLetter.flower_type}
-                isOpened={activeLetter.is_opened}
-                body={activeLetter.body}
-                fontStyle={activeLetter.font_style}
-                onOpen={handleOpenEnvelope}
-              />
-
-              {/* Soft "opening…" hint that auto-disappears once the
-                  envelope unseals. The actual unseal is automatic — see
-                  openLetter(). Kept only as a subtle status indicator. */}
-              {!envelopeOpened && (
-                <p className="text-center text-[12px] text-stone-400 mt-3 animate-pulse">
-                  opening…
-                </p>
-              )}
-
-              {/* Letter rises out of the envelope when it opens. Starts
-                  small and tucked behind the envelope (translateY +60,
-                  scale 0.55), then springs up to full size — making it
-                  feel like a sheet of paper being pulled out by hand. */}
-              <AnimatePresence>
-                {envelopeOpened && (
-                  <motion.div
-                    key="letter-paper"
-                    initial={{ opacity: 0, y: 60, scale: 0.55 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 30, scale: 0.85 }}
-                    transition={{
-                      duration: 0.7,
-                      ease: [0.22, 1, 0.36, 1], // gentle "out-back" easing
-                    }}
-                    className="mt-3 origin-top"
-                  >
-                    <LetterView
-                      pages={readPages}
-                      fontStyle={activeLetter.font_style}
-                      colorTheme={activeLetter.color_theme}
-                      deliveredAt={
+              <div className="flex flex-col lg:flex-row lg:items-start gap-8 lg:gap-10 xl:gap-12">
+                <aside className="shrink-0 flex flex-col items-center lg:items-stretch lg:w-[240px] lg:sticky lg:top-24 lg:self-start">
+                  <div className="w-[228px] max-w-[85vw] mx-auto lg:mx-0">
+                    <EnvelopeView
+                      title={activeLetter.title}
+                      date={new Date(
                         activeLetter.delivered_at || activeLetter.created_at
-                      }
-                      currentPage={readPage}
-                      totalPages={readPages.length}
-                      onPageChange={(p) => {
-                        setReadPage(p);
-                        setAnimKey((k) => k + 1);
-                      }}
-                      animationKey={animKey}
+                      ).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                      stamp={activeLetter.stamp_type}
+                      flower={activeLetter.flower_type}
+                      isOpened={activeLetter.is_opened}
+                      body={activeLetter.body}
+                      fontStyle={activeLetter.font_style}
+                      onOpen={handleOpenEnvelope}
+                      readingEnvelopeWidth={228}
                     />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </div>
+                  {!envelopeOpened && (
+                    <p className="text-center text-[13px] text-stone-400 mt-3 animate-pulse lg:px-1">
+                      opening…
+                    </p>
+                  )}
+                </aside>
+
+                <div className="flex-1 min-w-0 w-full flex justify-center lg:pt-1">
+                  <AnimatePresence>
+                    {envelopeOpened && (
+                      <motion.div
+                        key="letter-paper"
+                        initial={{ opacity: 0, y: 48, scale: 0.92 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 24, scale: 0.96 }}
+                        transition={{
+                          duration: 0.65,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                        className="w-full max-w-3xl origin-top"
+                      >
+                        <LetterView
+                          pages={readPages}
+                          fontStyle={activeLetter.font_style}
+                          colorTheme={activeLetter.color_theme}
+                          deliveredAt={
+                            activeLetter.delivered_at || activeLetter.created_at
+                          }
+                          currentPage={readPage}
+                          totalPages={readPages.length}
+                          onPageChange={(p) => {
+                            setReadPage(p);
+                            setAnimKey((k) => k + 1);
+                          }}
+                          animationKey={animKey}
+                          widePaper
+                          stamp={activeLetter.stamp_type}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+              </div>
             </motion.div>
           )}
-
-          {/* ────── COMPOSE VIEW ────── */}
           {view === "compose" && (
             <motion.div
               key="compose"
@@ -699,17 +688,21 @@ export function LoveLetterDesk({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
-              className="py-8 px-4 sm:px-8 vault-page min-h-full"
+              className="desk-canvas vault-page relative min-h-full"
             >
+              <div className="vault-grain pointer-events-none absolute inset-0" />
+              <div className="relative py-8 px-4 sm:px-8">
               <div className="max-w-5xl mx-auto">
                 <div className="mb-7">
                   <button
+                    type="button"
                     onClick={goToVault}
-                    className="text-[12px] text-[#5d1a17]/70 hover:text-[#5d1a17] transition font-[family-name:var(--font-love-ya),cursive]"
+                    className="desk-back-link"
                   >
-                    ← back to vault
+                    <span aria-hidden>←</span>
+                    Back to vault
                   </button>
-                  <h2 className="vault-subtitle text-[clamp(22px,3vw,30px)] mt-3 leading-tight">
+                  <h2 className="vault-subtitle text-[clamp(22px,3vw,30px)] mt-4 leading-tight">
                     The Writer&apos;s Desk
                   </h2>
                   <p className="text-[13px] text-[#5d1a17]/55 mt-1.5 max-w-xl">
@@ -893,7 +886,7 @@ export function LoveLetterDesk({
                   </div>
 
                   {/* ── RIGHT: Preview first, then stationery & picks ── */}
-                  <div className="rounded-2xl p-4 flex flex-col gap-5 border border-[rgba(120,75,35,0.22)] bg-[#fefbf4]/94 backdrop-blur-md shadow-[0_6px_28px_rgba(45,28,12,0.08)] xl:sticky xl:top-24 xl:self-start">
+                  <div className="rounded-2xl p-4 flex flex-col gap-5 border border-[var(--desk-header-border)] bg-[var(--brand-surface-header)] backdrop-blur-md shadow-[0_6px_24px_rgba(45,28,12,0.07)] xl:sticky xl:top-24 xl:self-start">
                     {/* Live preview — blank opened envelope (top of sidebar) */}
                     <section className="pb-1 border-b border-[rgba(120,75,35,0.15)]">
                       <p className="text-[10px] tracking-[0.12em] uppercase text-[#5d1a17]/65 mb-2">
@@ -908,6 +901,7 @@ export function LoveLetterDesk({
                         body={composePreviewBody}
                         fontStyle={fontStyle}
                         flower={flowerType}
+                        stamp={stampType}
                       />
                     </section>
 
@@ -1012,11 +1006,7 @@ export function LoveLetterDesk({
                         !title.trim() ||
                         pages.every((p) => !p.trim())
                       }
-                      className="w-full rounded-xl py-[12px] text-white text-[14px] transition-all disabled:opacity-40 disabled:pointer-events-none font-[family-name:var(--font-love-ya),cursive] tracking-wide cursor-pointer hover:opacity-90 shadow-md"
-                      style={{
-                        background: saved ? "#2e7d4f" : "var(--brand-claret)",
-                        letterSpacing: "0.04em",
-                      }}
+                      className={`vault-compose-btn w-full justify-center py-3.5 text-[17px] transition-all disabled:opacity-40 disabled:pointer-events-none ${saved ? "vault-compose-btn--success" : ""}`}
                     >
                       {saving
                         ? "Sealing…"
@@ -1026,6 +1016,7 @@ export function LoveLetterDesk({
                     </button>
                   </div>
                 </div>
+              </div>
               </div>
             </motion.div>
           )}

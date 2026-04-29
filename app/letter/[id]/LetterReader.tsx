@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { LetterView } from "@/components/LetterView";
-import type { FontStyle, ColorTheme } from "@/lib/constants";
+import type { FontStyle, ColorTheme, StampType } from "@/lib/constants";
 
 interface LetterReaderProps {
   pages: string[];
   fontStyle: FontStyle;
   colorTheme: ColorTheme;
   deliveredAt: string;
+  stamp?: StampType | null;
 }
 
 export function LetterReader({
@@ -16,6 +17,7 @@ export function LetterReader({
   fontStyle,
   colorTheme,
   deliveredAt,
+  stamp = null,
 }: LetterReaderProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [animKey, setAnimKey] = useState(0);
@@ -33,6 +35,7 @@ export function LetterReader({
         setAnimKey((k) => k + 1);
       }}
       animationKey={animKey}
+      stamp={stamp}
     />
   );
 }

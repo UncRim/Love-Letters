@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { BrandLogo } from "@/components/BrandLogo";
 
 type Mode = "password" | "signup" | "magic";
 
@@ -128,8 +129,8 @@ export default function LoginPage() {
         <div className="w-full max-w-[420px] auth-fade-1">
 
           {/* Title */}
-          <h1 className="font-[family-name:var(--font-love-ya)] text-[42px] md:text-[52px] text-[#2a1f0f] leading-[1.1] mb-3">
-            Love Letters
+          <h1 className="mb-3 font-normal">
+            <BrandLogo size="lg" className="max-w-full" />
           </h1>
 
           {/* Subcopy */}
@@ -231,7 +232,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="login-cta-btn auth-fade-3"
               >
-                <span className="font-[family-name:var(--font-dm-sans)] text-[14px] font-medium tracking-wide">
+                <span>
                   {loading
                     ? "Please wait\u2026"
                     : mode === "signup"

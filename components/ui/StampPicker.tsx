@@ -8,7 +8,7 @@ import {
 } from "@/lib/constants";
 
 interface StampPickerProps {
-  value: StampType;
+  value: StampType | null;
   onChange: (v: StampType) => void;
 }
 

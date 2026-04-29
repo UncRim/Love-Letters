@@ -27,6 +27,11 @@ interface EnvelopeViewProps {
   body?: string;
   /** Handwriting style for the paper preview. */
   fontStyle?: FontStyle;
+  /**
+   * Reading screen only: envelope art width in px. Defaults to 320 (full hero).
+   * Use a smaller value (e.g. 228) for a sidebar layout next to the letter.
+   */
+  readingEnvelopeWidth?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -118,6 +123,7 @@ export function EnvelopeView({
   onOpen,
   body,
   fontStyle,
+  readingEnvelopeWidth = 320,
 }: EnvelopeViewProps) {
   const [flipped, setFlipped] = useState(false);
 
@@ -172,15 +178,18 @@ export function EnvelopeView({
   }
 
   // ─────────────────────────────────────
-  // Reading mode (large envelope on letter detail screen).
+  // Reading mode (envelope on letter detail screen).
   // The closed → opened transition uses a 3D rotateX on the closed
   // envelope so the top edge "tips back" like a real flap unsealing,
   // then the opened envelope fades up into place.
   // ─────────────────────────────────────
+  const readingArtLarge = readingEnvelopeWidth >= 280;
+  const readingSizes = `${Math.round(readingEnvelopeWidth)}px`;
+
   return (
     <div
       className="relative mx-auto"
-      style={{ width: 320, perspective: 900 }}
+      style={{ width: readingEnvelopeWidth, perspective: 900 }}
     >
       <AnimatePresence mode="wait">
         {flipped || isOpened ? (
@@ -200,7 +209,8 @@ export function EnvelopeView({
               body={body}
               fontStyle={fontStyle}
               stamp={null}
-              large
+              large={readingArtLarge}
+              imageSizes={readingSizes}
             />
           </motion.div>
         ) : (
@@ -217,7 +227,11 @@ export function EnvelopeView({
             style={{ transformOrigin: "50% 0%", transformStyle: "preserve-3d" }}
             className="group block w-full bg-transparent border-0 p-0 cursor-pointer"
           >
-            <ClosedEnvelopeArt stamp={null} large />
+            <ClosedEnvelopeArt
+              stamp={null}
+              large={readingArtLarge}
+              imageSizes={readingSizes}
+            />
           </motion.button>
         )}
       </AnimatePresence>
@@ -231,11 +245,16 @@ export function EnvelopeView({
 function ClosedEnvelopeArt({
   stamp,
   large = false,
+  imageSizes,
 }: {
   stamp: StampType | null;
   large?: boolean;
+  /** `next/image` sizes hint; defaults from `large`. */
+  imageSizes?: string;
 }) {
   const stampSrc = stamp ? STAMP_ART_PATH[stamp] : null;
+  const sizes =
+    imageSizes ?? (large ? "320px" : "(max-width: 768px) 50vw, 240px");
 
   return (
     <div
@@ -249,7 +268,7 @@ function ClosedEnvelopeArt({
         src="/envelopes/closed.svg"
         alt="Sealed envelope"
         fill
-        sizes={large ? "320px" : "(max-width: 768px) 50vw, 240px"}
+        sizes={sizes}
         priority={large}
         className="object-contain select-none"
         draggable={false}
@@ -312,6 +331,7 @@ function OpenedEnvelopeArt({
   large = false,
   stamp = null,
   previewCharLimit,
+  imageSizes,
 }: {
   flower: FlowerType | null;
   title?: string | null;
@@ -322,7 +342,11 @@ function OpenedEnvelopeArt({
   stamp?: StampType | null;
   /** Override default body preview length (`ENVELOPE_PREVIEW_BODY_MAX_CHARS`). */
   previewCharLimit?: number;
+  /** `next/image` sizes for the base SVG; defaults from `large`. */
+  imageSizes?: string;
 }) {
+  const sizes =
+    imageSizes ?? (large ? "320px" : "(max-width: 768px) 50vw, 240px");
   const flowerSrc = flower ? FLOWER_IMAGE[flower] : null;
   const stampSrc = stamp ? STAMP_ART_PATH[stamp] : null;
 
@@ -358,7 +382,7 @@ function OpenedEnvelopeArt({
         src="/envelopes/opened-blank.svg"
         alt="Opened envelope with letter"
         fill
-        sizes={large ? "320px" : "(max-width: 768px) 50vw, 240px"}
+        sizes={sizes}
         priority={large}
         className="object-contain select-none z-0"
         draggable={false}
@@ -486,7 +510,7 @@ function OpenedEnvelopeArt({
           src="/envelopes/opened-blank.svg"
           alt=""
           fill
-          sizes={large ? "320px" : "(max-width: 768px) 50vw, 240px"}
+          sizes={sizes}
           className="object-contain select-none"
           aria-hidden
           draggable={false}
@@ -496,31 +520,34 @@ function OpenedEnvelopeArt({
   );
 }
 
-/** Compose sidebar: same envelope art & caps as vault (no postage on read screen). */
+/** Compose sidebar: same envelope art & caps as vault; optional postage when selected. */
 export function EnvelopeComposePreview({
   title,
   body,
   fontStyle,
   flower,
+  stamp = null,
 }: {
   title: string;
   body: string;
   fontStyle: FontStyle;
   flower: FlowerType | null;
+  stamp?: StampType | null;
 }) {
   return (
-    <div
-      className="group relative w-full mx-auto rounded-xl overflow-hidden ring-1 ring-[rgba(120,75,35,0.28)] shadow-[0_8px_28px_rgba(45,28,12,0.14)] bg-[#e8d8b4]/40"
-      style={{ maxWidth: 272 }}
-    >
-      <OpenedEnvelopeArt
-        title={title || null}
-        body={body}
-        fontStyle={fontStyle}
-        flower={flower}
-        stamp={null}
-        large
-      />
+    <div className="group relative w-full rounded-xl overflow-hidden ring-1 ring-[rgba(120,75,35,0.28)] shadow-[0_8px_28px_rgba(45,28,12,0.14)] bg-[#e8d8b4]/40">
+      <div className="flex w-full items-center justify-center p-4 sm:p-[18px]">
+        <div className="w-full max-w-[210px] shrink-0">
+          <OpenedEnvelopeArt
+            title={title || null}
+            body={body}
+            fontStyle={fontStyle}
+            flower={flower}
+            stamp={stamp}
+            large
+          />
+        </div>
+      </div>
     </div>
   );
 }

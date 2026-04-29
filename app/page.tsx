@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Image from "next/image";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default async function HomePage() {
   try {
@@ -24,8 +25,8 @@ export default async function HomePage() {
       {/* ── Left panel ── */}
       <div className="w-full lg:w-1/2 min-h-screen flex flex-col items-center justify-center bg-[#faf6f1] px-6 py-16 lg:px-16">
         <div className="w-full max-w-[420px] auth-fade-1">
-          <h1 className="font-[family-name:var(--font-love-ya)] text-[48px] md:text-[56px] text-[#2a1f0f] leading-[1.1] mb-4">
-            Love Letters
+          <h1 className="mb-1.5 font-normal sm:mb-2">
+            <BrandLogo size="hero" />
           </h1>
 
           <p className="font-[family-name:var(--font-dm-sans)] text-[15px] text-[#6b5d4f] leading-[1.7] mb-12 max-w-[360px]">
@@ -34,9 +35,7 @@ export default async function HomePage() {
 
           <a href="/auth/login" className="block w-full max-w-[360px]">
             <div className="login-cta-btn">
-              <span className="font-[family-name:var(--font-dm-sans)] text-[14px] font-medium tracking-wide">
-                Open the Vault
-              </span>
+              <span>Open the Vault</span>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="ml-2">
                 <path d="M5 12H19M19 12L13 6M19 12L13 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>

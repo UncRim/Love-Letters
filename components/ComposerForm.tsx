@@ -31,7 +31,7 @@ export function ComposerForm({ userId }: ComposerFormProps) {
   const [curPage, setCurPage] = useState(0);
   const [fontStyle, setFontStyle] = useState<FontStyle>("dancing_script");
   const [colorTheme, setColorTheme] = useState<ColorTheme>("vintage");
-  const [stampType, setStampType] = useState<StampType>("cherry_blossom");
+  const [stampType, setStampType] = useState<StampType | null>(null);
   const [flowerType, setFlowerType] = useState<FlowerType>("red_1");
   const [recipientId, setRecipientId] = useState(userId);
   const [saving, setSaving] = useState(false);
@@ -364,7 +364,7 @@ export function ComposerForm({ userId }: ComposerFormProps) {
                 fontSize: 10,
               }}
             >
-              {STAMP_EMOJI[stampType]}
+              {stampType ? STAMP_EMOJI[stampType] : ""}
             </div>
             <div
               className="absolute"
@@ -396,11 +396,7 @@ export function ComposerForm({ userId }: ComposerFormProps) {
         <button
           onClick={handleSeal}
           disabled={saving || !title.trim() || isPending}
-          className="w-full rounded-lg py-[11px] text-white text-[13px] transition-all disabled:opacity-40 font-[family-name:--font-playfair] italic tracking-wide cursor-pointer hover:opacity-90"
-          style={{
-            background: saved ? "#2e7d4f" : "var(--brand-claret)",
-            letterSpacing: "0.04em",
-          }}
+          className={`vault-compose-btn w-full justify-center py-3 text-[17px] transition-all disabled:opacity-40 ${saved ? "vault-compose-btn--success" : ""}`}
         >
           {saving
             ? "Sealing..."

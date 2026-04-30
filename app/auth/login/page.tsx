@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { BrandLogo } from "@/components/BrandLogo";
 
@@ -24,25 +25,28 @@ const TESTIMONIALS = [
       "In a world of disappearing messages, this is where the words stay. Folded, sealed, and waiting to be opened again.",
     name: "Amara",
   },
+  {
+    quote:
+      "Some desks hold clutter; mine holds courage\u2014the kind it takes to say the tender thing out loud, even when only paper hears it.",
+    name: "Sofia",
+  },
 ];
 
-// SVG polaroids include a baked-in 17.85° tilt; CSS rotations below
-// compensate for that so each card lands at a different visual angle.
-const PHOTOS = [
-  { src: "/photos/couple-1.svg", rotate: -25, top: "10%", left: "0%" },
-  { src: "/photos/couple-2.svg", rotate: -14, top: "0%",  left: "30%" },
-  { src: "/photos/couple-3.svg", rotate: -21, top: "32%", left: "55%" },
-  { src: "/photos/couple-4.svg", rotate: -12, top: "44%", left: "20%" },
-];
+/** Seconds — scales gently with quote length for the handwriting reveal */
+function handwritingSeconds(quote: string): number {
+  return Math.min(5.4, Math.max(2.6, quote.length * 0.036));
+}
 
-const PINS = [
-  { color: "#9b59b6", top: "8%",  left: "32%" },
-  { color: "#27ae60", top: "34%", left: "62%" },
-  { color: "#e74c3c", top: "84%", left: "16%" },
-];
+const SLIDE_DURATION = 0.42;
+
+function safeRedirectPath(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/vault";
+  return raw;
+}
 
 export default function LoginPage() {
   const router = useRouter();
+  const [redirectAfterAuth, setRedirectAfterAuth] = useState("/vault");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<Mode>("password");
@@ -52,22 +56,32 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
 
   const [testiIdx, setTestiIdx] = useState(0);
-  const [testiFading, setTestiFading] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const prefersReducedMotion = reduceMotion ?? false;
 
   const goToTesti = useCallback((idx: number) => {
-    setTestiFading(true);
-    setTimeout(() => {
-      setTestiIdx(idx);
-      setTestiFading(false);
-    }, 400);
+    setTestiIdx(idx);
   }, []);
+
+  const dwellMs = useMemo(() => {
+    const q = TESTIMONIALS[testiIdx]?.quote ?? "";
+    const writeSec = prefersReducedMotion ? 0.35 : handwritingSeconds(q);
+    const pauseReadSec = 6;
+    const slideBufferSec = SLIDE_DURATION * 2 + 0.15;
+    return Math.round((writeSec + pauseReadSec + slideBufferSec) * 1000);
+  }, [testiIdx, prefersReducedMotion]);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      goToTesti((testiIdx + 1) % TESTIMONIALS.length);
-    }, 6000);
+      setTestiIdx((i) => (i + 1) % TESTIMONIALS.length);
+    }, dwellMs);
     return () => clearInterval(timer);
-  }, [testiIdx, goToTesti]);
+  }, [dwellMs]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setRedirectAfterAuth(safeRedirectPath(params.get("redirect_to")));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -77,11 +91,13 @@ export default function LoginPage() {
     try {
       const supabase = createClient();
 
+      const cbUrl = `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent(redirectAfterAuth)}`;
+
       if (mode === "magic") {
         const { error } = await supabase.auth.signInWithOtp({
           email,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            emailRedirectTo: cbUrl,
           },
         });
         if (error) setErrorMsg(error.message);
@@ -91,7 +107,7 @@ export default function LoginPage() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            emailRedirectTo: cbUrl,
           },
         });
         if (error) setErrorMsg(error.message);
@@ -102,7 +118,7 @@ export default function LoginPage() {
           password,
         });
         if (error) setErrorMsg(error.message);
-        else router.push("/vault");
+        else router.push(redirectAfterAuth);
       }
     } catch (err) {
       setErrorMsg(
@@ -337,23 +353,63 @@ export default function LoginPage() {
           </svg>
         </div>
 
-        {/* Testimonial — handwritten, centered, with rotating dots */}
-        <div className="absolute top-[36%] left-1/2 -translate-x-1/2 w-[340px] z-10">
-          <div
-            className="transition-all duration-500"
-            style={{
-              opacity: testiFading ? 0 : 1,
-              transform: testiFading ? "translateY(6px)" : "translateY(0)",
-            }}
-          >
-            <p className="handwritten-quote">
-              &ldquo;{TESTIMONIALS[testiIdx].quote}&rdquo;
-            </p>
-            <p className="handwritten-quote-attr">
-              {TESTIMONIALS[testiIdx].name} ~
-            </p>
+        {/* Testimonial — slides between cards; quote uses a handwriting-style reveal */}
+        <div className="absolute top-[36%] left-1/2 -translate-x-1/2 w-[min(92vw,340px)] max-w-[340px] z-10 px-2">
+          <div className="relative overflow-hidden min-h-[168px]">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={testiIdx}
+                initial={{ x: 52, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -52, opacity: 0 }}
+                transition={{
+                  duration: SLIDE_DURATION,
+                  ease: [0.25, 0.46, 0.45, 0.94],
+                }}
+              >
+                <motion.p
+                  className="handwritten-quote"
+                  initial={
+                    prefersReducedMotion
+                      ? { opacity: 0 }
+                      : { clipPath: "inset(0 100% 0 0)" }
+                  }
+                  animate={
+                    prefersReducedMotion
+                      ? { opacity: 1 }
+                      : { clipPath: "inset(0 0% 0 0)" }
+                  }
+                  transition={
+                    prefersReducedMotion
+                      ? { duration: 0.35, ease: "easeOut" }
+                      : {
+                          duration: handwritingSeconds(TESTIMONIALS[testiIdx].quote),
+                          ease: [0.22, 1, 0.36, 1],
+                          delay: 0.06,
+                        }
+                  }
+                >
+                  &ldquo;{TESTIMONIALS[testiIdx].quote}&rdquo;
+                </motion.p>
+                <motion.p
+                  className="handwritten-quote-attr"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: prefersReducedMotion ? 0.35 : 0.55,
+                    ease: [0.22, 1, 0.36, 1],
+                    delay: prefersReducedMotion
+                      ? 0.15
+                      : handwritingSeconds(TESTIMONIALS[testiIdx].quote) * 0.72 +
+                        0.12,
+                  }}
+                >
+                  {TESTIMONIALS[testiIdx].name} ~
+                </motion.p>
+              </motion.div>
+            </AnimatePresence>
           </div>
-          <div className="flex gap-2 mt-4 justify-center">
+          <div className="flex gap-2 mt-5 justify-center">
             {TESTIMONIALS.map((_, i) => (
               <button
                 key={i}
@@ -372,39 +428,16 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Photo cluster — SVG polaroids render with their own frame + shadow */}
-        <div className="absolute bottom-[10%] left-[12%] w-[420px] h-[260px] z-[8]">
-          {PHOTOS.map((photo, i) => (
-            <div
-              key={i}
-              className="photo-card"
-              style={{
-                top: photo.top,
-                left: photo.left,
-                transform: `rotate(${photo.rotate}deg)`,
-              }}
-            >
-              <Image
-                src={photo.src}
-                alt=""
-                width={210}
-                height={196}
-                className="photo-card-img"
-              />
-            </div>
-          ))}
-
-          {PINS.map((pin, i) => (
-            <div
-              key={i}
-              className="pushpin z-[12]"
-              style={{
-                top: pin.top,
-                left: pin.left,
-                background: pin.color,
-              }}
-            />
-          ))}
+        {/* Bottom-left polaroid cluster — single SVG (multiply blends flat white into paper) */}
+        <div className="absolute bottom-[5%] left-[4%] z-[8] w-[min(92%,380px)] max-w-[380px] pointer-events-none select-none">
+          <Image
+            src="/photos/bottom-left-corner.svg"
+            alt=""
+            width={383}
+            height={347}
+            className="corner-photo-cluster-img"
+            draggable={false}
+          />
         </div>
 
         {/* Lipstick kiss mark */}

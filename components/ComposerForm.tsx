@@ -1,28 +1,34 @@
 "use client";
 
-import { useState, useRef, useCallback, useTransition } from "react";
+import { useState, useRef, useCallback, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FlowerIcon } from "./FlowerIcon";
 import { StampPicker } from "./ui/StampPicker";
 import { FlowerPicker } from "./ui/FlowerPicker";
-import { createClient } from "@/lib/supabase/client";
+import { LetterSealSuccessModal } from "./LetterSealSuccessModal";
 import { FONT_CLASSNAMES } from "@/lib/fonts";
 import {
   THEME_CONFIG,
   FONT_META,
-  PAGE_SEPARATOR,
-  STAMP_EMOJI,
   type FontStyle,
   type ColorTheme,
   type StampType,
   type FlowerType,
 } from "@/lib/constants";
 
-interface ComposerFormProps {
-  userId: string;
+const DRAFT_STORAGE_KEY = "velle-compose-draft-v1";
+
+interface DraftPayload {
+  title: string;
+  pages: string[];
+  curPage: number;
+  fontStyle: FontStyle;
+  colorTheme: ColorTheme;
+  stampType: StampType | null;
+  flowerType: FlowerType;
 }
 
-export function ComposerForm({ userId }: ComposerFormProps) {
+export function ComposerForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -33,12 +39,51 @@ export function ComposerForm({ userId }: ComposerFormProps) {
   const [colorTheme, setColorTheme] = useState<ColorTheme>("vintage");
   const [stampType, setStampType] = useState<StampType | null>(null);
   const [flowerType, setFlowerType] = useState<FlowerType>("red_1");
-  const [recipientId, setRecipientId] = useState(userId);
+  const [secretKey, setSecretKey] = useState("");
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   const taRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw) as DraftPayload;
+      if (d.title) setTitle(d.title);
+      if (Array.isArray(d.pages) && d.pages.length) setPages(d.pages);
+      if (typeof d.curPage === "number") setCurPage(d.curPage);
+      if (d.fontStyle) setFontStyle(d.fontStyle);
+      if (d.colorTheme) setColorTheme(d.colorTheme);
+      if (d.stampType !== undefined) setStampType(d.stampType);
+      if (d.flowerType) setFlowerType(d.flowerType);
+    } catch {
+      /* ignore corrupt draft */
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      try {
+        const draft: DraftPayload = {
+          title,
+          pages,
+          curPage,
+          fontStyle,
+          colorTheme,
+          stampType,
+          flowerType,
+        };
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+      } catch {
+        /* quota */
+      }
+    }, 30_000);
+    return () => window.clearInterval(id);
+  }, [title, pages, curPage, fontStyle, colorTheme, stampType, flowerType]);
 
   const handleBodyChange = useCallback(
     (value: string) => {
@@ -63,45 +108,44 @@ export function ComposerForm({ userId }: ComposerFormProps) {
 
   async function handleSeal() {
     if (!title.trim() || pages.every((p) => !p.trim())) return;
+    if (secretKey.length < 4) {
+      setErrorMsg("Choose a secret key (at least 4 characters).");
+      return;
+    }
     setErrorMsg("");
     setSaving(true);
 
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setErrorMsg("You must be signed in.");
-        setSaving(false);
-        return;
-      }
-
-      const { error } = await supabase.from("letters").insert({
-        author_id: user.id,
-        recipient_id: recipientId || user.id,
-        title: title.trim(),
-        body: pages.join(PAGE_SEPARATOR),
-        font_style: fontStyle,
-        color_theme: colorTheme,
-        stamp_type: stampType,
-        flower_type: flowerType,
-        delivered_at: new Date().toISOString(),
-        is_draft: false,
+      const res = await fetch("/api/letters/seal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          pages,
+          secretKey,
+          font_style: fontStyle,
+          color_theme: colorTheme,
+          stamp_id: stampType,
+          flower_id: flowerType,
+        }),
       });
 
-      if (error) throw error;
-      setSaved(true);
+      const data = (await res.json()) as { shareUrl?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Seal failed");
 
-      setTimeout(() => {
-        startTransition(() => {
-          router.push("/vault");
-          router.refresh();
-        });
-      }, 1500);
+      setSaved(true);
+      setShareUrl(data.shareUrl ?? null);
+      setShowSuccessModal(true);
+      try {
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+      } catch {
+        /* noop */
+      }
     } catch (err) {
       console.error("Failed to seal letter:", err);
-      setErrorMsg("Failed to send. Please try again.");
+      setErrorMsg(
+        err instanceof Error ? err.message : "Failed to send. Please try again."
+      );
     } finally {
       setSaving(false);
     }
@@ -115,6 +159,7 @@ export function ComposerForm({ userId }: ComposerFormProps) {
   const pageContent = pages[curPage] ?? "";
 
   return (
+    <>
     <div className="grid gap-5" style={{ gridTemplateColumns: "1fr 272px" }}>
       {/* ── LEFT: Notebook Paper ── */}
       <div className="relative">
@@ -171,14 +216,14 @@ export function ComposerForm({ userId }: ComposerFormProps) {
           </div>
 
           <div
-            className="relative z-[3] pt-7 pb-6 pr-5"
+            className="relative z-[3] pb-6 pr-5 pt-[118px] sm:pt-[122px]"
             style={{ paddingLeft: 68 }}
           >
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Letter title..."
-              className="w-full border-none bg-transparent outline-none text-[13px] block mb-5 tracking-wide placeholder:text-stone-400/50"
+              className="w-full border-none bg-transparent outline-none text-xl font-semibold block mb-5 tracking-wide placeholder:text-stone-400/50"
               style={{
                 color: inkColor,
                 fontFamily,
@@ -299,17 +344,25 @@ export function ComposerForm({ userId }: ComposerFormProps) {
         <StampPicker value={stampType} onChange={setStampType} />
         <FlowerPicker value={flowerType} onChange={setFlowerType} />
 
-        {/* Recipient */}
+        {/* Share link — recipient opens via secret */}
         <section>
           <p className="text-[10px] tracking-[0.1em] uppercase text-stone-500 mb-[9px]">
-            Recipient
+            Delivery
           </p>
+          <p className="text-[11px] leading-relaxed text-stone-600 font-[family-name:var(--font-dm-sans)] mb-3">
+            Seal generates a unique link. Anyone with the link{" "}
+            <strong className="font-medium text-[#5a3e28]">and</strong> your secret key can open it—then save it to their vault.
+          </p>
+          <label className="block text-[10px] uppercase tracking-[0.08em] text-stone-500 mb-1">
+            Secret key
+          </label>
           <input
-            type="text"
-            value={recipientId}
-            onChange={(e) => setRecipientId(e.target.value)}
-            placeholder="Recipient UUID"
-            className="w-full px-2 py-1.5 rounded-md border border-stone-200 bg-white text-[11px] text-stone-600 font-mono focus:outline-none focus:ring-1 focus:ring-stone-300"
+            type="password"
+            autoComplete="new-password"
+            value={secretKey}
+            onChange={(e) => setSecretKey(e.target.value)}
+            placeholder="Choose a memorable key\u2026"
+            className="w-full px-2 py-2 rounded-md border border-stone-200 bg-white text-[12px] text-stone-700 font-[family-name:var(--font-dm-sans)] focus:outline-none focus:ring-1 focus:ring-[#6B1B1B]/35"
           />
         </section>
 
@@ -352,21 +405,6 @@ export function ComposerForm({ userId }: ComposerFormProps) {
               }}
             />
             <div
-              className="absolute flex items-center justify-center"
-              style={{
-                top: 5,
-                right: 5,
-                width: 18,
-                height: 22,
-                background: "#f5e8c8",
-                border: "1px solid #b8933a",
-                zIndex: 10,
-                fontSize: 10,
-              }}
-            >
-              {stampType ? STAMP_EMOJI[stampType] : ""}
-            </div>
-            <div
               className="absolute"
               style={{
                 top: "50%",
@@ -395,7 +433,13 @@ export function ComposerForm({ userId }: ComposerFormProps) {
         {/* Seal & Send */}
         <button
           onClick={handleSeal}
-          disabled={saving || !title.trim() || isPending}
+          disabled={
+            saving ||
+            !title.trim() ||
+            isPending ||
+            secretKey.length < 4 ||
+            saved
+          }
           className={`vault-compose-btn w-full justify-center py-3 text-[17px] transition-all disabled:opacity-40 ${saved ? "vault-compose-btn--success" : ""}`}
         >
           {saving
@@ -406,5 +450,18 @@ export function ComposerForm({ userId }: ComposerFormProps) {
         </button>
       </div>
     </div>
+
+    <LetterSealSuccessModal
+      open={showSuccessModal}
+      shareUrl={shareUrl}
+      onContinueToVault={() => {
+        setShowSuccessModal(false);
+        startTransition(() => {
+          router.push("/vault");
+          router.refresh();
+        });
+      }}
+    />
+    </>
   );
 }

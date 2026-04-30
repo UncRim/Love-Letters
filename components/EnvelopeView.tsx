@@ -520,19 +520,17 @@ function OpenedEnvelopeArt({
   );
 }
 
-/** Compose sidebar: same envelope art & caps as vault; optional postage when selected. */
+/** Compose sidebar: envelope + flower only — postage is shown on the main notepad, not here. */
 export function EnvelopeComposePreview({
   title,
   body,
   fontStyle,
   flower,
-  stamp = null,
 }: {
   title: string;
   body: string;
   fontStyle: FontStyle;
   flower: FlowerType | null;
-  stamp?: StampType | null;
 }) {
   return (
     <div className="group relative w-full rounded-xl overflow-hidden ring-1 ring-[rgba(120,75,35,0.28)] shadow-[0_8px_28px_rgba(45,28,12,0.14)] bg-[#e8d8b4]/40">
@@ -543,8 +541,8 @@ export function EnvelopeComposePreview({
             body={body}
             fontStyle={fontStyle}
             flower={flower}
-            stamp={stamp}
-            large
+            stamp={null}
+            large={false}
           />
         </div>
       </div>

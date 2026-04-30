@@ -1,6 +1,12 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { PAGE_SEPARATOR, type Letter } from "@/lib/constants";
+import type { Letter } from "@/lib/constants";
+import {
+  letterPages,
+  stampIdFromLetter,
+  fontFromLetter,
+  themeFromLetter,
+} from "@/lib/letter-content";
 import { LetterOpener } from "./LetterOpener";
 import { LetterReader } from "./LetterReader";
 
@@ -38,11 +44,15 @@ export default async function LetterPage({ params }: LetterPageProps) {
     notFound();
   }
 
-  if (!typedLetter.is_opened && typedLetter.recipient_id === user.id) {
+  if (
+    typedLetter.recipient_id &&
+    !typedLetter.is_opened &&
+    typedLetter.recipient_id === user.id
+  ) {
     return <LetterOpener letter={typedLetter} />;
   }
 
-  const pages = typedLetter.body.split(PAGE_SEPARATOR);
+  const pages = letterPages(typedLetter);
 
   return (
     <main className="flex-1 desk-canvas vault-page relative min-h-full flex flex-col">
@@ -58,10 +68,10 @@ export default async function LetterPage({ params }: LetterPageProps) {
       </div>
       <LetterReader
         pages={pages}
-        fontStyle={typedLetter.font_style}
-        colorTheme={typedLetter.color_theme}
+        fontStyle={fontFromLetter(typedLetter)}
+        colorTheme={themeFromLetter(typedLetter)}
         deliveredAt={typedLetter.delivered_at || typedLetter.created_at}
-        stamp={typedLetter.stamp_type}
+        stamp={stampIdFromLetter(typedLetter)}
       />
       </div>
     </main>

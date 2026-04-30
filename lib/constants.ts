@@ -183,7 +183,8 @@ export interface Letter {
   created_at: string;
   delivered_at: string | null;
   author_id: string;
-  recipient_id: string;
+  /** Nullable until recipient claims a share-link letter */
+  recipient_id: string | null;
   title: string | null;
   body: string;
   font_style: FontStyle;
@@ -193,4 +194,10 @@ export interface Letter {
   is_draft: boolean;
   is_opened: boolean;
   opened_at: string | null;
+  /** Hybrid storage */
+  sender_id?: string | null;
+  content?: unknown;
+  metadata?: unknown;
+  access_key_hash?: string | null;
+  is_claimed?: boolean;
 }

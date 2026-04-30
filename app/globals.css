@@ -534,6 +534,14 @@ body {
   user-select: none;
 }
 
+/* Split-panel bottom corner — blends away solid white export background on paper */
+.corner-photo-cluster-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  mix-blend-mode: multiply;
+}
+
 /* Pushpin (cleaner three-dimensional look) */
 .pushpin {
   position: absolute;

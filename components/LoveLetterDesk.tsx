@@ -9,6 +9,7 @@ import { LetterView } from "./LetterView";
 import { StampPicker } from "./ui/StampPicker";
 import { BrandLogo } from "./BrandLogo";
 import { FlowerPicker } from "./ui/FlowerPicker";
+import { LetterSealSuccessModal } from "./LetterSealSuccessModal";
 import { createClient } from "@/lib/supabase/client";
 import { FONT_CLASSNAMES } from "@/lib/fonts";
 import {
@@ -28,51 +29,6 @@ type View = "vault" | "compose" | "reading";
 interface LoveLetterDeskProps {
   initialLetters: Letter[];
   userId: string;
-}
-
-// Some live databases were created with an outdated CHECK constraint
-// that rejects newer (or even some older) flower variants. We don't
-// know exactly which subset is allowed, so when an insert fails on the
-// flower constraint we walk down a chain of progressively safer values
-// until one is accepted. The final candidate is `null`, which is always
-// allowed because the column is nullable.
-const LEGACY_FLOWER_FALLBACK: Partial<Record<FlowerType, FlowerType>> = {
-  purple2_1: "purple_1",
-  purple2_2: "purple_2",
-  purple2_3: "purple_3",
-  purple2_4: "purple_4",
-  hasegawa_1: "white_1",
-  hasegawa_2: "white_2",
-  hasegawa_3: "white_3",
-  hasegawa_4: "white_4",
-};
-
-function flowerFallbackChain(
-  picked: FlowerType | null,
-): (FlowerType | null)[] {
-  if (!picked) return [null];
-  const chain: (FlowerType | null)[] = [picked];
-  const legacy = LEGACY_FLOWER_FALLBACK[picked];
-  if (legacy && legacy !== picked) chain.push(legacy);
-  // `red_1` is the most likely value to exist in any historical version
-  // of the constraint. Last-ditch: null (column is nullable).
-  if (picked !== "red_1" && (!legacy || legacy !== "red_1"))
-    chain.push("red_1");
-  chain.push(null);
-  return chain;
-}
-
-function isCheckConstraintError(
-  err: { message?: string | null; details?: string | null; code?: string | null } | null,
-  constraintName: string,
-) {
-  if (!err) return false;
-  const haystack = `${err.message ?? ""} ${err.details ?? ""}`.toLowerCase();
-  return (
-    err.code === "23514" ||
-    haystack.includes(constraintName.toLowerCase()) ||
-    haystack.includes("check constraint")
-  );
 }
 
 export function LoveLetterDesk({
@@ -98,7 +54,9 @@ export function LoveLetterDesk({
   const [colorTheme, setColorTheme] = useState<ColorTheme>("vintage");
   const [stampType, setStampType] = useState<StampType | null>(null);
   const [flowerType, setFlowerType] = useState<FlowerType>("red_1");
-  const [recipientId, setRecipientId] = useState(userId);
+  const [secretKey, setSecretKey] = useState("");
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -113,11 +71,13 @@ export function LoveLetterDesk({
     setColorTheme("vintage");
     setStampType(null);
     setFlowerType("red_1");
-    setRecipientId(userId);
+    setSecretKey("");
+    setShareUrl(null);
+    setShowSuccessModal(false);
     setSaving(false);
     setSaved(false);
     setErrorMsg("");
-  }, [userId]);
+  }, []);
 
   // ── Vault actions ──
 
@@ -197,153 +157,34 @@ export function LoveLetterDesk({
 
   async function handleSeal() {
     if (!title.trim() || pages.every((p) => !p.trim())) return;
+    if (secretKey.length < 4) {
+      setErrorMsg("Choose a secret key (at least 4 characters).");
+      return;
+    }
     setErrorMsg("");
     setSaving(true);
 
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setErrorMsg("You must be signed in.");
-        setSaving(false);
-        return;
-      }
+      const res = await fetch("/api/letters/seal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          pages,
+          secretKey,
+          font_style: fontStyle,
+          color_theme: colorTheme,
+          stamp_id: stampType,
+          flower_id: flowerType,
+        }),
+      });
 
-      // recipient_id must be a UUID referencing auth.users.
-      // Fall back to self when the field is empty or not a valid UUID.
-      const uuidRe =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const trimmedRecipient = (recipientId ?? "").trim();
-      const finalRecipient =
-        trimmedRecipient && uuidRe.test(trimmedRecipient)
-          ? trimmedRecipient
-          : user.id;
-
-      const payload = {
-        author_id: user.id,
-        recipient_id: finalRecipient,
-        title: title.trim(),
-        body: pages.join(PAGE_SEPARATOR),
-        font_style: fontStyle,
-        color_theme: colorTheme,
-        stamp_type: stampType,
-        flower_type: flowerType,
-        delivered_at: new Date().toISOString(),
-        is_draft: false,
-      };
-
-      // Walk a fallback chain so the insert succeeds even when the
-      // live DB has a stale `letters_flower_type_check` (or stamp
-      // constraint). Each iteration retries with progressively safer
-      // values; the final attempt sends `null` for the offending field,
-      // which is always accepted because both columns are nullable.
-      const flowerChain = flowerFallbackChain(flowerType);
-      const stampChain: (StampType | null)[] = stampType
-        ? [stampType, null]
-        : [null];
-
-      let data:
-        | (Letter & Record<string, unknown>)
-        | Record<string, unknown>
-        | null = null;
-      let error: {
-        code?: string | null;
-        message?: string | null;
-        details?: string | null;
-        hint?: string | null;
-      } | null = null;
-      let savedFlower: FlowerType | null = flowerType;
-      let savedStamp: StampType | null = stampType;
-
-      for (const flowerCandidate of flowerChain) {
-        for (const stampCandidate of stampChain) {
-          const attempt = await supabase
-            .from("letters")
-            .insert({
-              ...payload,
-              flower_type: flowerCandidate,
-              stamp_type: stampCandidate,
-            })
-            .select()
-            .single();
-
-          data = attempt.data;
-          error = attempt.error;
-          savedFlower = flowerCandidate;
-          savedStamp = stampCandidate;
-
-          if (!error) break;
-
-          const flowerRejected = isCheckConstraintError(
-            error,
-            "letters_flower_type_check",
-          );
-          const stampRejected = isCheckConstraintError(
-            error,
-            "letters_stamp_type_check",
-          );
-
-          if (!flowerRejected && !stampRejected) {
-            // Different error — stop retrying and surface it.
-            break;
-          }
-          if (flowerRejected) {
-            // Need to advance the flower chain — break the inner loop.
-            break;
-          }
-          // Otherwise stamp was rejected; continue the inner loop to
-          // try the next stamp candidate (i.e. null).
-        }
-
-        if (!error) break;
-
-        // Stop if the only remaining errors aren't the flower constraint.
-        if (!isCheckConstraintError(error, "letters_flower_type_check")) {
-          break;
-        }
-      }
-
-      if (!error && (savedFlower !== flowerType || savedStamp !== stampType)) {
-        console.warn(
-          "Letter saved with fallback values because the live DB CHECK " +
-            "constraints rejected the originals. Apply the migration at " +
-            "supabase/migrations/20260427_update_flower_type_check.sql " +
-            "(or the SQL printed in the README) to allow every variant.",
-          {
-            picked: { flower_type: flowerType, stamp_type: stampType },
-            saved: { flower_type: savedFlower, stamp_type: savedStamp },
-          },
-        );
-      }
-
-      if (error) {
-        // Supabase / PostgREST errors are objects with non-enumerable
-        // properties — log each piece explicitly so it isn't shown as `{}`.
-        console.error("Failed to seal letter", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-          payload,
-        });
-        const friendly =
-          error.code === "42501" ||
-          /row[- ]level security|RLS|policy/i.test(error.message ?? "")
-            ? "Permission denied — check your sign-in or recipient ID."
-            : error.message || "Failed to send. Please try again.";
-        setErrorMsg(friendly);
-        return;
-      }
+      const data = (await res.json()) as { shareUrl?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Seal failed");
 
       setSaved(true);
-
-      if (data && finalRecipient === userId) {
-        setLetters((prev) => [data as Letter, ...prev]);
-      }
-
-      setTimeout(() => goToVault(), 1800);
+      setShareUrl(data.shareUrl ?? null);
+      setShowSuccessModal(true);
     } catch (err) {
       const e = err as { message?: string };
       console.error("Failed to seal letter (exception)", {
@@ -408,7 +249,9 @@ export function LoveLetterDesk({
             disabled={
               saving ||
               !title.trim() ||
-              pages.every((p) => !p.trim())
+              pages.every((p) => !p.trim()) ||
+              secretKey.length < 4 ||
+              saved
             }
             className="vault-compose-btn shrink-0 px-5 py-2.5 text-[16px] disabled:opacity-40 disabled:pointer-events-none"
           >
@@ -707,8 +550,8 @@ export function LoveLetterDesk({
                   </h2>
                   <p className="text-[13px] text-[#5d1a17]/55 mt-1.5 max-w-xl">
                     Stationery, flower, and handwriting update the preview.
-                    Postage shows on the notepad; the full letter is what you
-                    write on the pages below.
+                    Postage shows on the notepad only; share your sealed letter
+                    with the link after you send.
                   </p>
                 </div>
 
@@ -823,16 +666,16 @@ export function LoveLetterDesk({
                         )}
                       </div>
 
-                      {/* Writing area — grows so sheet matches sidebar height */}
+                      {/* Writing area — top padding clears the postage stamp (top-right); ruled lines stay aligned */}
                       <div
-                        className="relative z-[3] flex flex-col flex-1 min-h-0 pt-7 pb-4 pr-5"
+                        className="relative z-[3] flex flex-col flex-1 min-h-0 pb-4 pr-5 pt-[118px] sm:pt-[122px]"
                         style={{ paddingLeft: 68 }}
                       >
                         <input
                           value={title}
                           onChange={(e) => setTitle(e.target.value)}
                           placeholder="Letter title..."
-                          className="w-full shrink-0 border-none bg-transparent outline-none text-[13px] block mb-4 tracking-wide placeholder:text-stone-400/50"
+                          className="w-full shrink-0 border-none bg-transparent outline-none text-xl font-semibold block mb-4 tracking-wide placeholder:text-stone-400/50"
                           style={{
                             color: inkColor,
                             fontFamily,
@@ -901,7 +744,6 @@ export function LoveLetterDesk({
                         body={composePreviewBody}
                         fontStyle={fontStyle}
                         flower={flowerType}
-                        stamp={stampType}
                       />
                     </section>
 
@@ -984,17 +826,25 @@ export function LoveLetterDesk({
                       onChange={setFlowerType}
                     />
 
-                    {/* Recipient (collapsible) */}
+                    {/* Delivery — secret key for hybrid share link */}
                     <section>
                       <p className="text-[10px] tracking-[0.1em] uppercase text-stone-500 mb-[9px]">
-                        Recipient
+                        Delivery
                       </p>
+                      <p className="text-[11px] leading-relaxed text-stone-600 mb-3 font-[family-name:var(--font-dm-sans)]">
+                        Choose a secret key. After you send, you&apos;ll get a
+                        shareable link — recipients need both the link and key to open.
+                      </p>
+                      <label className="block text-[10px] uppercase tracking-[0.08em] text-stone-500 mb-1">
+                        Secret key
+                      </label>
                       <input
-                        type="text"
-                        value={recipientId}
-                        onChange={(e) => setRecipientId(e.target.value)}
-                        placeholder="Recipient UUID"
-                        className="w-full px-2 py-1.5 rounded-md border border-stone-200 bg-white text-[11px] text-stone-600 font-mono focus:outline-none focus:ring-1 focus:ring-stone-300"
+                        type="password"
+                        autoComplete="new-password"
+                        value={secretKey}
+                        onChange={(e) => setSecretKey(e.target.value)}
+                        placeholder="At least 4 characters\u2026"
+                        className="w-full px-2 py-2 rounded-md border border-stone-200 bg-white text-[12px] text-stone-700 font-[family-name:var(--font-dm-sans)] focus:outline-none focus:ring-1 focus:ring-[#6B1B1B]/35"
                       />
                     </section>
 
@@ -1004,7 +854,9 @@ export function LoveLetterDesk({
                       disabled={
                         saving ||
                         !title.trim() ||
-                        pages.every((p) => !p.trim())
+                        pages.every((p) => !p.trim()) ||
+                        secretKey.length < 4 ||
+                        saved
                       }
                       className={`vault-compose-btn w-full justify-center py-3.5 text-[17px] transition-all disabled:opacity-40 disabled:pointer-events-none ${saved ? "vault-compose-btn--success" : ""}`}
                     >
@@ -1022,6 +874,18 @@ export function LoveLetterDesk({
           )}
         </AnimatePresence>
       </div>
+
+      <LetterSealSuccessModal
+        open={showSuccessModal}
+        shareUrl={shareUrl}
+        onContinueToVault={() => {
+          setShowSuccessModal(false);
+          startTransition(() => {
+            goToVault();
+            router.refresh();
+          });
+        }}
+      />
     </div>
   );
 }

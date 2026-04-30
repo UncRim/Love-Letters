@@ -6,7 +6,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { EnvelopeView } from "@/components/EnvelopeView";
 import { LetterView } from "@/components/LetterView";
 import { createClient } from "@/lib/supabase/client";
-import { PAGE_SEPARATOR, type Letter } from "@/lib/constants";
+import type { Letter } from "@/lib/constants";
+import {
+  letterPages,
+  stampIdFromLetter,
+  flowerIdFromLetter,
+  fontFromLetter,
+  themeFromLetter,
+} from "@/lib/letter-content";
 
 interface LetterOpenerProps {
   letter: Letter;
@@ -15,11 +22,11 @@ interface LetterOpenerProps {
 export function LetterOpener({ letter }: LetterOpenerProps) {
   const router = useRouter();
   const [opened, setOpened] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [currentPage, setCurrentPage] = useState(0);
   const [animKey, setAnimKey] = useState(0);
 
-  const pages = letter.body.split(PAGE_SEPARATOR);
+  const pages = letterPages(letter);
 
   async function handleOpen() {
     const supabase = createClient();
@@ -65,8 +72,8 @@ export function LetterOpener({ letter }: LetterOpenerProps) {
             <EnvelopeView
               title={letter.title}
               date={formattedDate}
-              stamp={letter.stamp_type}
-              flower={letter.flower_type}
+              stamp={stampIdFromLetter(letter)}
+              flower={flowerIdFromLetter(letter)}
               isOpened={false}
               onOpen={handleOpen}
             />
@@ -83,17 +90,17 @@ export function LetterOpener({ letter }: LetterOpenerProps) {
           >
             <LetterView
               pages={pages}
-              fontStyle={letter.font_style}
-              colorTheme={letter.color_theme}
+              fontStyle={fontFromLetter(letter)}
+              colorTheme={themeFromLetter(letter)}
               deliveredAt={letter.delivered_at || letter.created_at}
               currentPage={currentPage}
-              totalPages={pages.length}
+              totalPages={Math.max(1, pages.length)}
               onPageChange={(p) => {
                 setCurrentPage(p);
                 setAnimKey((k) => k + 1);
               }}
               animationKey={animKey}
-              stamp={letter.stamp_type}
+              stamp={stampIdFromLetter(letter)}
             />
           </motion.div>
         )}

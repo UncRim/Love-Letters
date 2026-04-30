@@ -81,26 +81,16 @@ export default async function HomePage() {
           <p className="handwritten-quote-attr">Jane ~</p>
         </div>
 
-        {/* Photo cluster — SVG polaroids (frame + tilt + shadow are baked in;
-            CSS rotation here compensates for the built-in 17.85° tilt to spread angles). */}
-        <div className="absolute bottom-[10%] left-[12%] w-[420px] h-[260px] z-[8]">
-          <div className="photo-card" style={{ top: "10%", left: "0%",  transform: "rotate(-25deg)" }}>
-            <Image src="/photos/couple-1.svg" alt="" width={210} height={196} className="photo-card-img" />
-          </div>
-          <div className="photo-card" style={{ top: "0%",  left: "30%", transform: "rotate(-14deg)" }}>
-            <Image src="/photos/couple-2.svg" alt="" width={210} height={196} className="photo-card-img" />
-          </div>
-          <div className="photo-card" style={{ top: "32%", left: "55%", transform: "rotate(-21deg)" }}>
-            <Image src="/photos/couple-3.svg" alt="" width={210} height={196} className="photo-card-img" />
-          </div>
-          <div className="photo-card" style={{ top: "44%", left: "20%", transform: "rotate(-12deg)" }}>
-            <Image src="/photos/couple-4.svg" alt="" width={210} height={196} className="photo-card-img" />
-          </div>
-
-          {/* Pushpins on the photos */}
-          <div className="pushpin z-[12]" style={{ top: "8%",  left: "32%", background: "#9b59b6" }} />
-          <div className="pushpin z-[12]" style={{ top: "34%", left: "62%", background: "#27ae60" }} />
-          <div className="pushpin z-[12]" style={{ top: "84%", left: "16%", background: "#e74c3c" }} />
+        {/* Bottom-left polaroid cluster — single SVG (multiply blends flat white into paper) */}
+        <div className="absolute bottom-[5%] left-[4%] z-[8] w-[min(92%,380px)] max-w-[380px] pointer-events-none select-none">
+          <Image
+            src="/photos/bottom-left-corner.svg"
+            alt=""
+            width={383}
+            height={347}
+            className="corner-photo-cluster-img"
+            draggable={false}
+          />
         </div>
 
         {/* Lipstick kiss mark */}

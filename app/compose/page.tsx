@@ -27,7 +27,7 @@ export default async function ComposePage() {
           Choose your stationery, write from the heart, and seal it with love.
         </p>
       </header>
-      <ComposerForm userId={user.id} />
+      <ComposerForm />
       </div>
     </main>
   );

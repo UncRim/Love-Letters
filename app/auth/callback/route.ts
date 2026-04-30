@@ -8,7 +8,10 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/vault";
+  const next =
+    searchParams.get("redirect_to") ??
+    searchParams.get("next") ??
+    "/vault";
   const origin = new URL(request.url).origin;
 
   const redirectTo = new URL(next, origin);

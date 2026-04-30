@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, type ReactNode } from "react";
 import Image from "next/image";
 import { motion, useAnimate, stagger } from "framer-motion";
 import {
@@ -10,6 +10,7 @@ import {
   type FontStyle,
   type StampType,
 } from "@/lib/constants";
+import { stampSrcFromId } from "@/lib/constants/assets";
 import { FONT_CLASSNAMES } from "@/lib/fonts";
 
 /** Matches `linear-gradient(...) 0 FIRST_LINE_OFFSET / 100% LINE_STEP repeat-y` on the ruled layer. */
@@ -65,6 +66,8 @@ interface LetterViewProps {
   widePaper?: boolean;
   /** Postage art on the sheet (opened letter); omitted when null. */
   stamp?: StampType | null;
+  /** Extra actions below pagination (e.g. Save to Vault). */
+  footerSlot?: ReactNode;
 }
 
 export function LetterView({
@@ -79,10 +82,13 @@ export function LetterView({
   signOff = "With all of me,\nD.",
   widePaper = false,
   stamp = null,
+  footerSlot = null,
 }: LetterViewProps) {
   const theme = THEME_CONFIG[colorTheme];
   const fontCls = FONT_CLASSNAMES[fontStyle];
   const [scope, animate] = useAnimate();
+  const stampArtSrc =
+    stamp != null ? stampSrcFromId(stamp) ?? STAMP_ART_PATH[stamp] : null;
 
   const formattedDate = new Date(deliveredAt).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -156,7 +162,7 @@ export function LetterView({
           ))}
         </div>
 
-        {stamp ? (
+        {stampArtSrc ? (
           <div
             className="absolute z-[4] top-6 right-4 sm:right-6 flex flex-col items-center justify-center w-[58px] min-h-[72px] rounded-[4px] pointer-events-none px-1 py-2"
             style={{
@@ -173,7 +179,7 @@ export function LetterView({
           >
             <div className="relative w-12 h-12 rotate-[-8deg]">
               <Image
-                src={STAMP_ART_PATH[stamp]}
+                src={stampArtSrc}
                 alt="Postage stamp"
                 fill
                 className="object-contain"
@@ -287,6 +293,12 @@ export function LetterView({
           </button>
         </div>
       )}
+
+      {footerSlot ? (
+        <div className="px-5 pb-5" style={{ paddingLeft: 68 }}>
+          {footerSlot}
+        </div>
+      ) : null}
     </div>
   );
 }

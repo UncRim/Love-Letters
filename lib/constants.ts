@@ -5,16 +5,28 @@ export const COLOR_THEMES = ["vintage", "rose", "midnight"] as const;
 export type ColorTheme = (typeof COLOR_THEMES)[number];
 
 export const STAMP_TYPES = [
-  "cherry_blossom",
-  "butterfly",
-  "moon",
-  "star",
-  "dove",
-  "letter",
-  "rose",
-  "sun",
+  "valentine02_1",
+  "valentine02_2",
+  "valentine02_3",
+  "valentine02_4",
+  "valentine02_5",
+  "valentine02_6",
+  "valentine02_7",
+  "valentine02_8",
+  "valentine02_9",
+  "valentine03_1",
+  "valentine03_2",
+  "valentine03_3",
+  "valentine03_4",
+  "valentine03_5",
+  "valentine03_6",
+  "valentine03_7",
+  "valentine03_8",
 ] as const;
 export type StampType = (typeof STAMP_TYPES)[number];
+
+/** Max postage stamps on one letter (paper + envelope). */
+export const MAX_STAMPS_PER_LETTER = 2;
 
 export const FLOWER_TYPES = [
   "red_1", "red_2", "red_3", "red_4",
@@ -24,6 +36,13 @@ export const FLOWER_TYPES = [
   "yellow_1", "yellow_2", "yellow_3",
   "white_1", "white_2", "white_3", "white_4",
   "hasegawa_1", "hasegawa_2", "hasegawa_3", "hasegawa_4",
+  "bouquet_1", "bouquet_2", "bouquet_3", "bouquet_4", "bouquet_5",
+  "bouquet_6", "bouquet_7", "bouquet_8", "bouquet_9", "bouquet_10",
+  "rose_garden_1", "rose_garden_2", "rose_garden_3", "rose_garden_4",
+  "rose_garden_5", "rose_garden_6", "rose_garden_7", "rose_garden_8",
+  "rose_garden_9",
+  "rose_garden2_1", "rose_garden2_2", "rose_garden2_3", "rose_garden2_4",
+  "rose_garden2_5", "rose_garden2_6", "rose_garden2_7",
 ] as const;
 export type FlowerType = (typeof FLOWER_TYPES)[number];
 
@@ -55,51 +74,130 @@ export const FLOWER_IMAGE: Record<FlowerType, string> = {
   hasegawa_2: "/flowers/hasegawa-2.png",
   hasegawa_3: "/flowers/hasegawa-3.png",
   hasegawa_4: "/flowers/hasegawa-4.png",
+  bouquet_1: "/flowers/bouquet-1.png",
+  bouquet_2: "/flowers/bouquet-2.png",
+  bouquet_3: "/flowers/bouquet-3.png",
+  bouquet_4: "/flowers/bouquet-4.png",
+  bouquet_5: "/flowers/bouquet-5.png",
+  bouquet_6: "/flowers/bouquet-6.png",
+  bouquet_7: "/flowers/bouquet-7.png",
+  bouquet_8: "/flowers/bouquet-8.png",
+  bouquet_9: "/flowers/bouquet-9.png",
+  bouquet_10: "/flowers/bouquet-10.png",
+  rose_garden_1: "/flowers/rose-garden-1.png",
+  rose_garden_2: "/flowers/rose-garden-2.png",
+  rose_garden_3: "/flowers/rose-garden-3.png",
+  rose_garden_4: "/flowers/rose-garden-4.png",
+  rose_garden_5: "/flowers/rose-garden-5.png",
+  rose_garden_6: "/flowers/rose-garden-6.png",
+  rose_garden_7: "/flowers/rose-garden-7.png",
+  rose_garden_8: "/flowers/rose-garden-8.png",
+  rose_garden_9: "/flowers/rose-garden-9.png",
+  rose_garden2_1: "/flowers/rose-garden2-1.png",
+  rose_garden2_2: "/flowers/rose-garden2-2.png",
+  rose_garden2_3: "/flowers/rose-garden2-3.png",
+  rose_garden2_4: "/flowers/rose-garden2-4.png",
+  rose_garden2_5: "/flowers/rose-garden2-5.png",
+  rose_garden2_6: "/flowers/rose-garden2-6.png",
+  rose_garden2_7: "/flowers/rose-garden2-7.png",
 };
 
-export type FlowerCategory = "red" | "purple" | "orange" | "yellow" | "white" | "hasegawa";
+export type FlowerCategory =
+  | "rose_garden"
+  | "red"
+  | "purple"
+  | "orange"
+  | "yellow"
+  | "white"
+  | "hasegawa"
+  | "bouquet";
 
 export const FLOWER_CATEGORIES: { label: string; color: string; types: FlowerType[] }[] = [
+  {
+    label: "Rose Garden",
+    color: "#a83250",
+    types: [
+      "rose_garden_1",
+      "rose_garden_2",
+      "rose_garden_3",
+      "rose_garden_4",
+      "rose_garden_5",
+      "rose_garden_6",
+      "rose_garden_7",
+      "rose_garden_8",
+      "rose_garden_9",
+      "rose_garden2_1",
+      "rose_garden2_2",
+      "rose_garden2_3",
+      "rose_garden2_4",
+      "rose_garden2_5",
+      "rose_garden2_6",
+      "rose_garden2_7",
+    ],
+  },
   { label: "Red", color: "#c44040", types: ["red_1", "red_2", "red_3", "red_4"] },
   { label: "Purple", color: "#8860c8", types: ["purple_1", "purple_2", "purple_3", "purple_4", "purple2_1", "purple2_2", "purple2_3", "purple2_4"] },
   { label: "Orange", color: "#d48030", types: ["orange_1", "orange_2", "orange_3", "orange_4"] },
   { label: "Yellow", color: "#c8a020", types: ["yellow_1", "yellow_2", "yellow_3"] },
   { label: "White", color: "#a0988a", types: ["white_1", "white_2", "white_3", "white_4"] },
   { label: "Hasegawa", color: "#6a7a5a", types: ["hasegawa_1", "hasegawa_2", "hasegawa_3", "hasegawa_4"] },
+  {
+    label: "Bouquet",
+    color: "#b85a72",
+    types: [
+      "bouquet_1",
+      "bouquet_2",
+      "bouquet_3",
+      "bouquet_4",
+      "bouquet_5",
+      "bouquet_6",
+      "bouquet_7",
+      "bouquet_8",
+      "bouquet_9",
+      "bouquet_10",
+    ],
+  },
 ];
 
-export const STAMP_EMOJI: Record<StampType, string> = {
-  cherry_blossom: "🌸",
-  butterfly: "🦋",
-  moon: "🌙",
-  star: "⭐",
-  dove: "🕊️",
-  letter: "💌",
-  rose: "🌹",
-  sun: "☀️",
-};
-
 export const STAMP_LABELS: Record<StampType, string> = {
-  cherry_blossom: "Blossom",
-  butterfly: "Butterfly",
-  moon: "Moon",
-  star: "Star",
-  dove: "Dove",
-  letter: "Letter",
-  rose: "Rose",
-  sun: "Sun",
+  valentine02_1: "Be My Valentine 02 · 1",
+  valentine02_2: "Be My Valentine 02 · 2",
+  valentine02_3: "Be My Valentine 02 · 3",
+  valentine02_4: "Be My Valentine 02 · 4",
+  valentine02_5: "Be My Valentine 02 · 5",
+  valentine02_6: "Be My Valentine 02 · 6",
+  valentine02_7: "Be My Valentine 02 · 7",
+  valentine02_8: "Be My Valentine 02 · 8",
+  valentine02_9: "Be My Valentine 02 · 9",
+  valentine03_1: "Be My Valentine 03 · 1",
+  valentine03_2: "Be My Valentine 03 · 2",
+  valentine03_3: "Be My Valentine 03 · 3",
+  valentine03_4: "Be My Valentine 03 · 4",
+  valentine03_5: "Be My Valentine 03 · 5",
+  valentine03_6: "Be My Valentine 03 · 6",
+  valentine03_7: "Be My Valentine 03 · 7",
+  valentine03_8: "Be My Valentine 03 · 8",
 };
 
-/** Landmark SVGs used on envelope art & compose previews (`/public/stamps`). */
+/** Postage art — Heritage PNG library (`npm run import:valentine-stamps`). */
 export const STAMP_ART_PATH: Record<StampType, string> = {
-  cherry_blossom: "/stamps/eiffel.svg",
-  butterfly: "/stamps/big-ben.svg",
-  moon: "/stamps/liberty.svg",
-  star: "/stamps/eiffel.svg",
-  dove: "/stamps/big-ben.svg",
-  letter: "/stamps/egypt.svg",
-  rose: "/stamps/eiffel.svg",
-  sun: "/stamps/egypt.svg",
+  valentine02_1: "/stamps/valentine02-1.png",
+  valentine02_2: "/stamps/valentine02-2.png",
+  valentine02_3: "/stamps/valentine02-3.png",
+  valentine02_4: "/stamps/valentine02-4.png",
+  valentine02_5: "/stamps/valentine02-5.png",
+  valentine02_6: "/stamps/valentine02-6.png",
+  valentine02_7: "/stamps/valentine02-7.png",
+  valentine02_8: "/stamps/valentine02-8.png",
+  valentine02_9: "/stamps/valentine02-9.png",
+  valentine03_1: "/stamps/valentine03-1.png",
+  valentine03_2: "/stamps/valentine03-2.png",
+  valentine03_3: "/stamps/valentine03-3.png",
+  valentine03_4: "/stamps/valentine03-4.png",
+  valentine03_5: "/stamps/valentine03-5.png",
+  valentine03_6: "/stamps/valentine03-6.png",
+  valentine03_7: "/stamps/valentine03-7.png",
+  valentine03_8: "/stamps/valentine03-8.png",
 };
 
 /**

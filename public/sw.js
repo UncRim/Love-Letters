@@ -1,4 +1,4 @@
-const CACHE_NAME = "love-letters-v1";
+const CACHE_NAME = "inked-v1";
 const PRECACHE_URLS = ["/", "/vault", "/manifest.json"];
 
 self.addEventListener("install", (event) => {

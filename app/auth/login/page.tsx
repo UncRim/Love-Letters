@@ -12,7 +12,7 @@ type Mode = "password" | "signup" | "magic";
 const TESTIMONIALS = [
   {
     quote:
-      "Love Letters is the digital equivalent of that shoebox under the bed\u2014the one filled with letters you can\u2019t bear to throw away. It turns a temporary message into a permanent keepsake.",
+      "Inked is the digital equivalent of that shoebox under the bed\u2014the one filled with letters you can\u2019t bear to throw away. It turns a fleeting message into a permanent keepsake pressed in ink.",
     name: "Jane",
   },
   {
@@ -146,7 +146,11 @@ export default function LoginPage() {
 
           {/* Title */}
           <h1 className="mb-3 font-normal">
-            <BrandLogo size="lg" className="max-w-full" />
+            <BrandLogo
+              size="lg"
+              wordmarkVariant="stamped"
+              className="max-w-full"
+            />
           </h1>
 
           {/* Subcopy */}
@@ -333,16 +337,16 @@ export default function LoginPage() {
         {/* Stamps — tight 2×2 grid; SVGs render at native aspect ratio */}
         <div className="absolute top-12 right-12 grid grid-cols-2 gap-3 z-10 items-end">
           <div className="postage-stamp" style={{ transform: "rotate(-3deg)" }}>
-            <Image src="/stamps/egypt.svg" alt="" width={146} height={146} className="postage-stamp-img" />
+            <Image src="/stamps/valentine02-1.png" alt="" width={146} height={146} className="postage-stamp-img" />
           </div>
           <div className="postage-stamp" style={{ transform: "rotate(2deg)" }}>
-            <Image src="/stamps/liberty.svg" alt="" width={120} height={146} className="postage-stamp-img" />
+            <Image src="/stamps/valentine02-2.png" alt="" width={120} height={146} className="postage-stamp-img" />
           </div>
           <div className="postage-stamp" style={{ transform: "rotate(4deg)" }}>
-            <Image src="/stamps/big-ben.svg" alt="" width={122} height={146} className="postage-stamp-img" />
+            <Image src="/stamps/valentine03-1.png" alt="" width={122} height={146} className="postage-stamp-img" />
           </div>
           <div className="postage-stamp" style={{ transform: "rotate(-2deg)" }}>
-            <Image src="/stamps/eiffel.svg" alt="" width={146} height={145} className="postage-stamp-img" />
+            <Image src="/stamps/valentine03-2.png" alt="" width={146} height={145} className="postage-stamp-img" />
           </div>
         </div>
 

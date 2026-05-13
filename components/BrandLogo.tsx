@@ -1,5 +1,6 @@
 /**
  * Brand mark + wordmark — warm stationery palette (#5d1a17 claret, parchment, wax seal, gold accent).
+ * Wordmark uses Love Ya Like A Sister (same cursive as legacy Love Letters). `stamped` adds a light pressed-ink shadow + tilt on login.
  */
 
 type BrandLogoSize = "sm" | "desk" | "md" | "lg" | "hero";
@@ -108,26 +109,30 @@ interface BrandLogoProps {
   size?: BrandLogoSize;
   /** Hide the envelope mark (wordmark only). */
   mark?: boolean;
+  /** Pressed-ink emphasis on login (same face as default, stronger impression). */
+  wordmarkVariant?: "default" | "stamped";
   className?: string;
 }
 
 export function BrandLogo({
   size = "md",
   mark = true,
+  wordmarkVariant = "default",
   className = "",
 }: BrandLogoProps) {
   const cfg = SIZES[size];
+
+  const wordClasses =
+    wordmarkVariant === "stamped"
+      ? `font-[family-name:var(--font-love-ya),cursive] text-[#5d1a17] leading-[1.05] ${cfg.text} -rotate-[1deg] [text-shadow:1px_2px_0_rgba(93,26,23,0.14),0_0_1px_rgba(61,40,24,0.28)]`
+      : `font-[family-name:var(--font-love-ya),cursive] text-[#5d1a17] leading-[1.05] ${cfg.text}`;
 
   return (
     <span
       className={`inline-flex items-center ${cfg.gap} select-none ${className}`}
     >
       {mark ? <LogoMark sizePx={cfg.mark} /> : null}
-      <span
-        className={`font-[family-name:var(--font-love-ya),cursive] text-[#5d1a17] leading-[1.05] ${cfg.text}`}
-      >
-        Love Letters
-      </span>
+      <span className={wordClasses}>Inked.</span>
     </span>
   );
 }

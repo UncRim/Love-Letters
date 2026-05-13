@@ -289,6 +289,12 @@ body {
 .flower-picker-scroll::-webkit-scrollbar-thumb { background: rgba(90,60,20,0.15); border-radius: 4px; }
 .flower-picker-scroll::-webkit-scrollbar-thumb:hover { background: rgba(90,60,20,0.3); }
 
+/* Stamp picker scrollbar */
+.stamp-picker-scroll::-webkit-scrollbar { width: 4px; }
+.stamp-picker-scroll::-webkit-scrollbar-track { background: transparent; }
+.stamp-picker-scroll::-webkit-scrollbar-thumb { background: rgba(90,60,20,0.15); border-radius: 4px; }
+.stamp-picker-scroll::-webkit-scrollbar-thumb:hover { background: rgba(90,60,20,0.3); }
+
 /* Testimonial marquee */
 .marquee-track {
   animation: marqueeScroll 35s linear infinite;

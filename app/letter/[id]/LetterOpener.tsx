@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Letter } from "@/lib/constants";
 import {
   letterPages,
-  stampIdFromLetter,
+  stampsFromLetter,
   flowerIdFromLetter,
   fontFromLetter,
   themeFromLetter,
@@ -72,7 +72,7 @@ export function LetterOpener({ letter }: LetterOpenerProps) {
             <EnvelopeView
               title={letter.title}
               date={formattedDate}
-              stamp={stampIdFromLetter(letter)}
+              stamps={stampsFromLetter(letter)}
               flower={flowerIdFromLetter(letter)}
               isOpened={false}
               onOpen={handleOpen}
@@ -100,7 +100,7 @@ export function LetterOpener({ letter }: LetterOpenerProps) {
                 setAnimKey((k) => k + 1);
               }}
               animationKey={animKey}
-              stamp={stampIdFromLetter(letter)}
+              stamps={stampsFromLetter(letter)}
             />
           </motion.div>
         )}

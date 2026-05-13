@@ -5,7 +5,7 @@ import Image from "next/image";
 import { motion, useAnimate, stagger } from "framer-motion";
 import {
   THEME_CONFIG,
-  STAMP_ART_PATH,
+  MAX_STAMPS_PER_LETTER,
   type ColorTheme,
   type FontStyle,
   type StampType,
@@ -64,8 +64,8 @@ interface LetterViewProps {
   signOff?: string;
   /** Wider paper for reading layout (hero letter vs. compact cards). */
   widePaper?: boolean;
-  /** Postage art on the sheet (opened letter); omitted when null. */
-  stamp?: StampType | null;
+  /** Postage on the sheet (up to two); omitted when empty. */
+  stamps?: StampType[] | null;
   /** Extra actions below pagination (e.g. Save to Vault). */
   footerSlot?: ReactNode;
 }
@@ -81,14 +81,15 @@ export function LetterView({
   animationKey,
   signOff = "With all of me,\nD.",
   widePaper = false,
-  stamp = null,
+  stamps = null,
   footerSlot = null,
 }: LetterViewProps) {
   const theme = THEME_CONFIG[colorTheme];
   const fontCls = FONT_CLASSNAMES[fontStyle];
   const [scope, animate] = useAnimate();
-  const stampArtSrc =
-    stamp != null ? stampSrcFromId(stamp) ?? STAMP_ART_PATH[stamp] : null;
+  const stampList = (stamps ?? [])
+    .filter((s): s is StampType => Boolean(s))
+    .slice(0, MAX_STAMPS_PER_LETTER);
 
   const formattedDate = new Date(deliveredAt).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -118,7 +119,10 @@ export function LetterView({
   const lineHeightPx = `${RULE_LINE_STEP_PX}px`;
   /** Nudge text so baselines sit between horizontal rules (center of each 28px band). */
   const contentPadTop =
-    RULE_FIRST_OFFSET_PX + RULE_LINE_STEP_PX / 2 - RULE_LINE_STEP_PX * 0.72;
+    RULE_FIRST_OFFSET_PX +
+    RULE_LINE_STEP_PX / 2 -
+    RULE_LINE_STEP_PX * 0.72 +
+    (stampList.length === 0 ? 0 : stampList.length > 1 ? 14 : 10);
 
   return (
     <div
@@ -162,9 +166,9 @@ export function LetterView({
           ))}
         </div>
 
-        {stampArtSrc ? (
+        {stampList.length > 0 ? (
           <div
-            className="absolute z-[4] top-6 right-4 sm:right-6 flex flex-col items-center justify-center w-[58px] min-h-[72px] rounded-[4px] pointer-events-none px-1 py-2"
+            className="absolute z-[4] top-5 right-3 sm:top-6 sm:right-5 flex flex-row flex-wrap items-center justify-center gap-1.5 min-w-[118px] sm:min-w-[128px] min-h-[96px] sm:min-h-[104px] rounded-[6px] pointer-events-none px-2 py-2.5"
             style={{
               border: `1.5px dashed ${
                 colorTheme === "midnight"
@@ -177,15 +181,23 @@ export function LetterView({
                   : "rgba(255,253,248,0.5)",
             }}
           >
-            <div className="relative w-12 h-12 rotate-[-8deg]">
-              <Image
-                src={stampArtSrc}
-                alt="Postage stamp"
-                fill
-                className="object-contain"
-                sizes="48px"
-              />
-            </div>
+            {stampList.map((s, i) => (
+              <div
+                key={`${s}-${i}`}
+                className="relative w-[46px] h-[46px] sm:w-[52px] sm:h-[52px]"
+                style={{
+                  transform: `rotate(${i === 0 ? -8 : 6}deg)`,
+                }}
+              >
+                <Image
+                  src={stampSrcFromId(s)}
+                  alt=""
+                  fill
+                  className="object-contain"
+                  sizes="52px"
+                />
+              </div>
+            ))}
           </div>
         ) : null}
 

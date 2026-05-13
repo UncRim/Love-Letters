@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useTransition, useEffect } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FlowerIcon } from "./FlowerIcon";
 import { StampPicker } from "./ui/StampPicker";
@@ -10,11 +11,14 @@ import { FONT_CLASSNAMES } from "@/lib/fonts";
 import {
   THEME_CONFIG,
   FONT_META,
+  STAMP_TYPES,
+  MAX_STAMPS_PER_LETTER,
   type FontStyle,
   type ColorTheme,
   type StampType,
   type FlowerType,
 } from "@/lib/constants";
+import { stampAssetPath } from "@/lib/constants/assets";
 
 const DRAFT_STORAGE_KEY = "velle-compose-draft-v1";
 
@@ -24,7 +28,9 @@ interface DraftPayload {
   curPage: number;
   fontStyle: FontStyle;
   colorTheme: ColorTheme;
-  stampType: StampType | null;
+  stampTypes?: StampType[];
+  /** Legacy single-stamp drafts */
+  stampType?: StampType | null;
   flowerType: FlowerType;
 }
 
@@ -37,7 +43,7 @@ export function ComposerForm() {
   const [curPage, setCurPage] = useState(0);
   const [fontStyle, setFontStyle] = useState<FontStyle>("dancing_script");
   const [colorTheme, setColorTheme] = useState<ColorTheme>("vintage");
-  const [stampType, setStampType] = useState<StampType | null>(null);
+  const [stampTypes, setStampTypes] = useState<StampType[]>([]);
   const [flowerType, setFlowerType] = useState<FlowerType>("red_1");
   const [secretKey, setSecretKey] = useState("");
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -58,7 +64,19 @@ export function ComposerForm() {
       if (typeof d.curPage === "number") setCurPage(d.curPage);
       if (d.fontStyle) setFontStyle(d.fontStyle);
       if (d.colorTheme) setColorTheme(d.colorTheme);
-      if (d.stampType !== undefined) setStampType(d.stampType);
+      const stampSet = STAMP_TYPES as readonly string[];
+      let loadedStamps: StampType[] = [];
+      if (Array.isArray(d.stampTypes)) {
+        loadedStamps = d.stampTypes
+          .filter((x): x is StampType => stampSet.includes(x))
+          .slice(0, MAX_STAMPS_PER_LETTER);
+      } else if (
+        d.stampType != null &&
+        stampSet.includes(d.stampType as string)
+      ) {
+        loadedStamps = [d.stampType as StampType];
+      }
+      setStampTypes(loadedStamps);
       if (d.flowerType) setFlowerType(d.flowerType);
     } catch {
       /* ignore corrupt draft */
@@ -74,7 +92,7 @@ export function ComposerForm() {
           curPage,
           fontStyle,
           colorTheme,
-          stampType,
+          stampTypes,
           flowerType,
         };
         localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
@@ -83,7 +101,7 @@ export function ComposerForm() {
       }
     }, 30_000);
     return () => window.clearInterval(id);
-  }, [title, pages, curPage, fontStyle, colorTheme, stampType, flowerType]);
+  }, [title, pages, curPage, fontStyle, colorTheme, stampTypes, flowerType]);
 
   const handleBodyChange = useCallback(
     (value: string) => {
@@ -125,7 +143,7 @@ export function ComposerForm() {
           secretKey,
           font_style: fontStyle,
           color_theme: colorTheme,
-          stamp_id: stampType,
+          stamp_ids: stampTypes,
           flower_id: flowerType,
         }),
       });
@@ -216,7 +234,50 @@ export function ComposerForm() {
           </div>
 
           <div
-            className="relative z-[3] pb-6 pr-5 pt-[118px] sm:pt-[122px]"
+            className="absolute z-[4] top-5 right-3 sm:top-6 sm:right-5 flex flex-row flex-wrap items-center justify-center gap-1.5 min-w-[118px] sm:min-w-[128px] min-h-[96px] sm:min-h-[104px] rounded-[6px] pointer-events-none px-2 py-2.5"
+            style={{
+              border: `1.5px dashed ${
+                colorTheme === "midnight"
+                  ? "rgba(255,255,255,0.38)"
+                  : "rgba(90,62,40,0.42)"
+              }`,
+              background:
+                colorTheme === "midnight"
+                  ? "rgba(0,0,0,0.14)"
+                  : "rgba(255,253,248,0.5)",
+            }}
+          >
+            {stampTypes.length > 0 ? (
+              stampTypes.map((s, i) => (
+                <div
+                  key={`${s}-${i}`}
+                  className="relative w-[46px] h-[46px] sm:w-[52px] sm:h-[52px]"
+                  style={{ transform: `rotate(${i === 0 ? -8 : 6}deg)` }}
+                >
+                  <Image
+                    src={stampAssetPath(s)}
+                    alt=""
+                    fill
+                    className="object-contain"
+                    sizes="52px"
+                  />
+                </div>
+              ))
+            ) : (
+              <span
+                className={`text-[8px] uppercase tracking-[0.12em] text-center leading-tight px-0.5 ${
+                  colorTheme === "midnight"
+                    ? "text-stone-400"
+                    : "text-stone-500"
+                }`}
+              >
+                Stamp here
+              </span>
+            )}
+          </div>
+
+          <div
+            className="relative z-[3] pb-6 pr-5 pt-[132px] sm:pt-[138px]"
             style={{ paddingLeft: 68 }}
           >
             <input
@@ -341,7 +402,7 @@ export function ComposerForm() {
           </div>
         </section>
 
-        <StampPicker value={stampType} onChange={setStampType} />
+        <StampPicker value={stampTypes} onChange={setStampTypes} />
         <FlowerPicker value={flowerType} onChange={setFlowerType} />
 
         {/* Share link — recipient opens via secret */}

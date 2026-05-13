@@ -4,6 +4,7 @@ export type OpenEnvelopeDTO = {
   title: string | null;
   deliveredAt: string;
   requiresUnlock: boolean;
-  stampType: string | null;
+  /** Up to two postage stamp IDs (matches sealed letter metadata). */
+  stampTypes: string[];
   flowerType: string | null;
 };

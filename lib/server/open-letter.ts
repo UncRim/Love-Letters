@@ -1,7 +1,10 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { LetterMetadataStored } from "@/lib/letter-content";
+import {
+  type LetterMetadataStored,
+  stampsFromMetadata,
+} from "@/lib/letter-content";
 import type { OpenEnvelopeDTO } from "@/lib/types/open-letter";
 
 /** Stub data for `/open/[id]` envelope — omits letter body until unlock (requires service role). */
@@ -28,7 +31,7 @@ export async function fetchOpenEnvelope(
       title: data.title,
       deliveredAt: data.delivered_at ?? data.created_at,
       requiresUnlock: true,
-      stampType: meta?.stamp_id ?? data.stamp_type,
+      stampTypes: stampsFromMetadata(meta ?? null, data.stamp_type ?? null),
       flowerType: meta?.flower_id ?? data.flower_type,
     };
   } catch (e) {

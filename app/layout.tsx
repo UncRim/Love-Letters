@@ -14,13 +14,13 @@ import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Love Letters",
-  description: "A private desk of handwritten letters, sealed with care.",
+  title: "Inked.",
+  description: "A private desk where letters are sealed in ink—permanent, intentional keepsakes.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Love Letters",
+    title: "Inked.",
   },
 };
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { playStampSound } from "@/lib/playStampSound";
 
 const MailboxSendExperience = dynamic(
   () =>
@@ -27,12 +28,29 @@ export function LetterSealSuccessModal({
 }: LetterSealSuccessModalProps) {
   const [phase, setPhase] = useState<ModalPhase>("animate");
   const [copied, setCopied] = useState(false);
+  const [inkSplash, setInkSplash] = useState(false);
+  const letterEnteredRef = useRef(false);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (!open || !shareUrl) return;
-    setPhase("animate");
-    setCopied(false);
+    queueMicrotask(() => {
+      setPhase("animate");
+      setCopied(false);
+      setInkSplash(false);
+      letterEnteredRef.current = false;
+    });
   }, [open, shareUrl]);
+
+  function handleLetterEnteredMailbox() {
+    if (letterEnteredRef.current) return;
+    letterEnteredRef.current = true;
+    if (!reduceMotion) {
+      setInkSplash(true);
+      window.setTimeout(() => setInkSplash(false), 720);
+    }
+    void playStampSound();
+  }
 
   async function copyLink() {
     if (!shareUrl) return;
@@ -80,7 +98,7 @@ export function LetterSealSuccessModal({
                 id="seal-success-title"
                 className="text-center font-[family-name:var(--font-caveat)] text-[26px] text-[#3d2818] mb-1"
               >
-                {phase === "animate" ? "Off it goes…" : "Sent with love"}
+                {phase === "animate" ? "Off it goes…" : "Sealed in ink"}
               </h2>
               <p className="text-center text-[13px] text-[#5c4a38] font-[family-name:var(--font-dm-sans)] mb-5">
                 {phase === "animate"
@@ -90,9 +108,62 @@ export function LetterSealSuccessModal({
 
               {/* 3D mailbox send sequence */}
               {phase === "animate" ? (
-                <div className="relative mx-auto mb-2 flex justify-center rounded-xl bg-[rgba(11,13,15,0.06)] overflow-hidden ring-1 ring-[rgba(120,75,35,0.15)]">
+                <div className="relative mx-auto mb-2 flex justify-center rounded-xl bg-[rgba(11,13,15,0.06)] overflow-visible ring-1 ring-[rgba(120,75,35,0.15)]">
+                  <AnimatePresence>
+                    {inkSplash ? (
+                      <>
+                        <motion.div
+                          key="splash-a"
+                          aria-hidden
+                          className="pointer-events-none absolute left-[46%] top-[48%] z-20 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full mix-blend-multiply"
+                          style={{
+                            background:
+                              "radial-gradient(circle at 38% 42%, rgba(12,18,32,0.72) 0%, rgba(28,36,52,0.35) 42%, transparent 68%)",
+                          }}
+                          initial={{ scale: 0.15, opacity: 0.92 }}
+                          animate={{ scale: 1.65, opacity: 0 }}
+                          transition={{
+                            duration: reduceMotion ? 0.12 : 0.52,
+                            ease: [0.22, 1, 0.36, 1],
+                          }}
+                        />
+                        <motion.div
+                          key="splash-b"
+                          aria-hidden
+                          className="pointer-events-none absolute left-[54%] top-[52%] z-20 h-16 w-20 -translate-x-1/2 -translate-y-1/2 rounded-[42%] mix-blend-multiply"
+                          style={{
+                            background:
+                              "radial-gradient(ellipse at 50% 48%, rgba(8,12,22,0.65) 0%, transparent 62%)",
+                          }}
+                          initial={{ scale: 0.2, opacity: 0.78, rotate: -8 }}
+                          animate={{
+                            scale: 1.35,
+                            opacity: 0,
+                            rotate: 4,
+                          }}
+                          transition={{
+                            duration: reduceMotion ? 0.1 : 0.45,
+                            delay: 0.02,
+                            ease: [0.33, 1, 0.44, 1],
+                          }}
+                        />
+                        <motion.div
+                          key="splash-c"
+                          aria-hidden
+                          className="pointer-events-none absolute left-1/2 top-[44%] z-20 h-3 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full mix-blend-multiply bg-[rgba(15,22,34,0.5)]"
+                          initial={{ scaleX: 0.2, opacity: 0.85 }}
+                          animate={{ scaleX: 1.1, opacity: 0 }}
+                          transition={{
+                            duration: reduceMotion ? 0.08 : 0.32,
+                            ease: [0.4, 0, 0.2, 1],
+                          }}
+                        />
+                      </>
+                    ) : null}
+                  </AnimatePresence>
                   <MailboxSendExperience
                     key={shareUrl}
+                    onLetterEnteredMailbox={handleLetterEnteredMailbox}
                     onComplete={() => setPhase("share")}
                   />
                 </div>

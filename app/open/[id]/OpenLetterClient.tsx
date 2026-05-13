@@ -6,12 +6,17 @@ import { createClient } from "@/lib/supabase/client";
 import { EnvelopeView } from "@/components/EnvelopeView";
 import { LetterView } from "@/components/LetterView";
 import type { Letter } from "@/lib/constants";
-import type { StampType, FlowerType } from "@/lib/constants";
+import {
+  STAMP_TYPES,
+  MAX_STAMPS_PER_LETTER,
+  type StampType,
+  type FlowerType,
+} from "@/lib/constants";
 import {
   letterPages,
   fontFromLetter,
   themeFromLetter,
-  stampIdFromLetter,
+  stampsFromLetter,
   flowerIdFromLetter,
 } from "@/lib/letter-content";
 import type { OpenEnvelopeDTO } from "@/lib/types/open-letter";
@@ -96,10 +101,14 @@ export default function OpenLetterClient({
     }
   }
 
-  const stamp = envelope.stampType as StampType | null;
+  const envelopeStamps = envelope.stampTypes
+    .filter((id): id is StampType =>
+      (STAMP_TYPES as readonly string[]).includes(id),
+    )
+    .slice(0, MAX_STAMPS_PER_LETTER);
   const flower = envelope.flowerType as FlowerType | null;
 
-  const unlockedStamp = letter ? stampIdFromLetter(letter) : stamp;
+  const unlockedStamps = letter ? stampsFromLetter(letter) : envelopeStamps;
   const unlockedFlower = letter ? flowerIdFromLetter(letter) : flower;
 
   const pages = letter ? letterPages(letter) : [];
@@ -152,8 +161,8 @@ export default function OpenLetterClient({
                 <EnvelopeView
                   title={envelope.title}
                   date={formattedDate}
-                  stamp={stamp}
-                  flower={flower}
+                  stamps={unlockedStamps}
+                  flower={unlockedFlower}
                   isOpened={false}
                 />
               </div>
@@ -209,7 +218,7 @@ export default function OpenLetterClient({
                   setAnimKey((k) => k + 1);
                 }}
                 animationKey={animKey}
-                stamp={unlockedStamp}
+                stamps={unlockedStamps}
                 widePaper
                 footerSlot={
                   showClaim ? (

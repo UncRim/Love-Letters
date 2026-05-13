@@ -1,5 +1,7 @@
 import {
   PAGE_SEPARATOR,
+  STAMP_TYPES,
+  MAX_STAMPS_PER_LETTER,
   type FontStyle,
   type ColorTheme,
   type FlowerType,
@@ -10,6 +12,8 @@ import {
 export type LetterMetadataStored = {
   flower_id?: string | null;
   stamp_id?: string | null;
+  /** Up to `MAX_STAMPS_PER_LETTER` IDs; preferred when present. */
+  stamp_ids?: string[] | null;
   theme_id?: string | null;
   font_id?: string | null;
 };
@@ -31,11 +35,40 @@ export function letterTitle(letter: Letter): string | null {
   return letter.title;
 }
 
-/** Stamp ID for `/public` stamp assets (legacy rows → `stamp_type`). */
-export function stampIdFromLetter(letter: Letter): StampType | null {
+function isValidStampId(id: string): id is StampType {
+  return (STAMP_TYPES as readonly string[]).includes(id);
+}
+
+/** Resolved stamps from metadata + DB column (e.g. `/open/[id]` stub before unlock). */
+export function stampsFromMetadata(
+  meta: LetterMetadataStored | null | undefined,
+  fallbackStampType: string | null | undefined,
+): StampType[] {
+  const out: StampType[] = [];
+  const push = (id: string | null | undefined) => {
+    if (!id || !isValidStampId(id)) return;
+    if (out.includes(id)) return;
+    if (out.length >= MAX_STAMPS_PER_LETTER) return;
+    out.push(id);
+  };
+
+  if (Array.isArray(meta?.stamp_ids)) {
+    for (const x of meta.stamp_ids) push(typeof x === "string" ? x : null);
+  }
+  if (out.length === 0) push(meta?.stamp_id ?? null);
+  if (out.length === 0) push(fallbackStampType ?? null);
+  return out;
+}
+
+/** All stamp IDs on the letter (0–2), for paper and envelope. */
+export function stampsFromLetter(letter: Letter): StampType[] {
   const m = letter.metadata as LetterMetadataStored | null | undefined;
-  const id = (m?.stamp_id as StampType | undefined) ?? letter.stamp_type;
-  return id ?? null;
+  return stampsFromMetadata(m, letter.stamp_type ?? null);
+}
+
+/** First stamp ID (legacy helpers / single-stamp call sites). */
+export function stampIdFromLetter(letter: Letter): StampType | null {
+  return stampsFromLetter(letter)[0] ?? null;
 }
 
 export function flowerIdFromLetter(letter: Letter): FlowerType | null {

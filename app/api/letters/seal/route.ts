@@ -5,8 +5,11 @@ import {
   FONT_STYLES,
   COLOR_THEMES,
   PAGE_SEPARATOR,
+  STAMP_TYPES,
+  MAX_STAMPS_PER_LETTER,
   type FontStyle,
   type ColorTheme,
+  type StampType,
 } from "@/lib/constants";
 import type { LetterMetadataStored, LetterContentStored } from "@/lib/letter-content";
 
@@ -18,9 +21,31 @@ type SealBody = {
   secretKey?: string;
   font_style?: string;
   color_theme?: string;
+  /** Legacy single stamp. */
   stamp_id?: string | null;
+  /** Up to `MAX_STAMPS_PER_LETTER` IDs (preferred). */
+  stamp_ids?: string[] | null;
   flower_id?: string | null;
 };
+
+function parseSealStamps(body: SealBody): StampType[] | null {
+  const useArray = Array.isArray(body.stamp_ids);
+  const raw: string[] = useArray
+    ? body.stamp_ids!.filter((x): x is string => typeof x === "string")
+    : body.stamp_id != null && typeof body.stamp_id === "string"
+      ? [body.stamp_id]
+      : [];
+
+  const out: StampType[] = [];
+  for (const id of raw) {
+    if (!(STAMP_TYPES as readonly string[]).includes(id)) return null;
+    const st = id as StampType;
+    if (out.includes(st)) continue;
+    out.push(st);
+    if (out.length >= MAX_STAMPS_PER_LETTER) break;
+  }
+  return out;
+}
 
 export async function POST(req: Request) {
   let body: SealBody;
@@ -35,7 +60,12 @@ export async function POST(req: Request) {
   const secretKey = body.secretKey ?? "";
   const font_style = body.font_style as FontStyle | undefined;
   const color_theme = body.color_theme as ColorTheme | undefined;
-  const stamp_id = body.stamp_id ?? null;
+  const stampIdsParsed = parseSealStamps(body);
+  if (stampIdsParsed === null) {
+    return NextResponse.json({ error: "Invalid stamp." }, { status: 400 });
+  }
+  const stamp_ids = stampIdsParsed;
+  const stamp_type_col = stamp_ids[0] ?? null;
   const flower_id = body.flower_id ?? null;
 
   if (!title || pages.every((p) => !String(p).trim())) {
@@ -50,7 +80,6 @@ export async function POST(req: Request) {
   if (!color_theme || !COLOR_THEMES.includes(color_theme)) {
     return NextResponse.json({ error: "Invalid theme." }, { status: 400 });
   }
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -64,7 +93,8 @@ export async function POST(req: Request) {
 
   const metadata: LetterMetadataStored = {
     flower_id: flower_id,
-    stamp_id: stamp_id,
+    stamp_id: stamp_type_col,
+    ...(stamp_ids.length > 0 ? { stamp_ids: stamp_ids } : {}),
     theme_id: color_theme,
     font_id: font_style,
   };
@@ -88,7 +118,7 @@ export async function POST(req: Request) {
       metadata,
       font_style,
       color_theme,
-      stamp_type: stamp_id,
+      stamp_type: stamp_type_col,
       flower_type: flower_id,
       delivered_at: new Date().toISOString(),
       is_draft: false,

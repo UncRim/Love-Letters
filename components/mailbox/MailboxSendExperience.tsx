@@ -79,8 +79,10 @@ function bindEnvelopeTilt(
 
 function MailboxSendInner({
   onComplete,
+  onLetterEnteredMailbox,
 }: {
   onComplete: () => void;
+  onLetterEnteredMailbox?: () => void;
 }) {
   const gltf = useGLTF("/models/MailBox.glb");
 
@@ -240,6 +242,8 @@ function MailboxSendInner({
       ]);
       if (cancelled) return;
 
+      onLetterEnteredMailbox?.();
+
       await Promise.all([
         animate(doorRx, 0, {
           duration: 0.52,
@@ -278,6 +282,7 @@ function MailboxSendInner({
     envZ,
     flagRz,
     onComplete,
+    onLetterEnteredMailbox,
     tiltRx,
     tiltRy,
     visorRx,
@@ -362,9 +367,14 @@ function MailboxSendInner({
 
 export interface MailboxSendExperienceProps {
   onComplete: () => void;
+  /** Fires once when the envelope has slid into the mailbox slot (before the door closes). */
+  onLetterEnteredMailbox?: () => void;
 }
 
-export function MailboxSendExperience({ onComplete }: MailboxSendExperienceProps) {
+export function MailboxSendExperience({
+  onComplete,
+  onLetterEnteredMailbox,
+}: MailboxSendExperienceProps) {
   return (
     <Canvas
       className="h-[248px] w-full touch-none"
@@ -389,7 +399,10 @@ export function MailboxSendExperience({ onComplete }: MailboxSendExperienceProps
       }}
       dpr={[1, 2]}
     >
-      <MailboxSendInner onComplete={onComplete} />
+      <MailboxSendInner
+        onComplete={onComplete}
+        onLetterEnteredMailbox={onLetterEnteredMailbox}
+      />
     </Canvas>
   );
 }

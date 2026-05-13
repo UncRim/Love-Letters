@@ -20,7 +20,12 @@ create table public.letters (
 
   -- Delivery metadata
   stamp_type       text
-                     check (stamp_type in ('cherry_blossom','butterfly','moon','star','dove','letter','rose','sun')),
+                     check (stamp_type is null or stamp_type in (
+                       'valentine02_1','valentine02_2','valentine02_3','valentine02_4','valentine02_5',
+                       'valentine02_6','valentine02_7','valentine02_8','valentine02_9',
+                       'valentine03_1','valentine03_2','valentine03_3','valentine03_4','valentine03_5',
+                       'valentine03_6','valentine03_7','valentine03_8'
+                     )),
   flower_type      text
                      check (flower_type in (
                        'red_1','red_2','red_3','red_4',

@@ -1,7 +1,7 @@
 {
-  "name": "Love Letters",
-  "short_name": "Letters",
-  "description": "A private desk of handwritten letters, sealed with care.",
+  "name": "Inked.",
+  "short_name": "Inked",
+  "description": "A private desk where letters are sealed in ink—permanent, intentional keepsakes.",
   "start_url": "/vault",
   "display": "standalone",
   "background_color": "#fdf6e3",

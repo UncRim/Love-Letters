@@ -18,7 +18,7 @@ export function FlowerPicker({ value, onChange }: FlowerPickerProps) {
       <p className="text-[10px] tracking-[0.1em] uppercase text-stone-500 mb-3">
         Pressed Flower
       </p>
-      <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 flower-picker-scroll">
+      <div className="space-y-3 max-h-[min(420px,65vh)] overflow-y-auto pr-1 flower-picker-scroll">
         {FLOWER_CATEGORIES.map((cat) => (
           <div key={cat.label}>
             <div className="flex items-center gap-2 mb-1.5">

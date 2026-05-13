@@ -6,19 +6,21 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FLOWER_IMAGE,
   PAGE_SEPARATOR,
-  STAMP_ART_PATH,
   ENVELOPE_PREVIEW_BODY_MAX_CHARS,
   ENVELOPE_PREVIEW_TITLE_MAX_CHARS,
+  MAX_STAMPS_PER_LETTER,
   type StampType,
   type FlowerType,
   type FontStyle,
 } from "@/lib/constants";
+import { stampAssetPath } from "@/lib/constants/assets";
 import { FONT_CLASSNAMES } from "@/lib/fonts";
 
 interface EnvelopeViewProps {
   title: string | null;
   date: string;
-  stamp: StampType | null;
+  /** Up to two postage stamps on the flap. */
+  stamps: StampType[];
   flower: FlowerType | null;
   isOpened?: boolean;
   cardMode?: boolean;
@@ -113,10 +115,64 @@ const FLOWER_BOX = {
   height: "60%", // bottom ≈ y=208 (well into the V-flap face)
 };
 
+/** Top-left postage cluster on closed/opened envelope artwork (1–2 stamps). */
+function EnvelopeStampCluster({
+  stamps,
+  large,
+}: {
+  stamps: StampType[];
+  large: boolean;
+}) {
+  const list = stamps.slice(0, MAX_STAMPS_PER_LETTER);
+  if (!list.length) return null;
+
+  const singlePx = large ? 62 : 42;
+  const duoPx = large ? 48 : 33;
+
+  return (
+    <div
+      className="absolute flex flex-row items-start pointer-events-none transition-transform duration-300 ease-out group-hover:-translate-y-[2px]"
+      style={{
+        top: large ? "9%" : "8%",
+        left: large ? "7%" : "6%",
+        zIndex: 2,
+        gap: list.length > 1 ? (large ? -4 : -3) : 0,
+      }}
+    >
+      {list.map((s, i) => {
+        const px = list.length > 1 ? duoPx : singlePx;
+        return (
+          <div
+            key={`${s}-${i}`}
+            className="relative shrink-0"
+            style={{
+              width: px,
+              height: px,
+              transform: `rotate(${i === 0 ? -7 : 6}deg)`,
+              transformOrigin: "center",
+              filter:
+                "drop-shadow(0 1px 1px rgba(0,0,0,0.18)) drop-shadow(0 2px 4px rgba(0,0,0,0.10))",
+            }}
+          >
+            <Image
+              src={stampAssetPath(s)}
+              alt=""
+              fill
+              sizes={`${px}px`}
+              className="object-contain"
+              draggable={false}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function EnvelopeView({
   title,
   date,
-  stamp,
+  stamps,
   flower,
   isOpened = false,
   cardMode = false,
@@ -145,10 +201,10 @@ export function EnvelopeView({
             title={title}
             body={body}
             fontStyle={fontStyle}
-            stamp={null}
+            stamps={stamps}
           />
         ) : (
-          <ClosedEnvelopeArt stamp={null} />
+          <ClosedEnvelopeArt stamps={stamps} />
         )}
 
         {/* Caption: tighter to envelope; title larger than date */}
@@ -208,7 +264,7 @@ export function EnvelopeView({
               title={title}
               body={body}
               fontStyle={fontStyle}
-              stamp={null}
+              stamps={stamps}
               large={readingArtLarge}
               imageSizes={readingSizes}
             />
@@ -228,7 +284,7 @@ export function EnvelopeView({
             className="group block w-full bg-transparent border-0 p-0 cursor-pointer"
           >
             <ClosedEnvelopeArt
-              stamp={null}
+              stamps={stamps}
               large={readingArtLarge}
               imageSizes={readingSizes}
             />
@@ -243,16 +299,15 @@ export function EnvelopeView({
 // Closed envelope (uses the closed.svg artwork directly)
 // ─────────────────────────────────────
 function ClosedEnvelopeArt({
-  stamp,
+  stamps,
   large = false,
   imageSizes,
 }: {
-  stamp: StampType | null;
+  stamps: StampType[];
   large?: boolean;
   /** `next/image` sizes hint; defaults from `large`. */
   imageSizes?: string;
 }) {
-  const stampSrc = stamp ? STAMP_ART_PATH[stamp] : null;
   const sizes =
     imageSizes ?? (large ? "320px" : "(max-width: 768px) 50vw, 240px");
 
@@ -274,36 +329,7 @@ function ClosedEnvelopeArt({
         draggable={false}
       />
 
-      {/* Stamp overlay (top-left corner). Wiggles slightly on hover. */}
-      {stampSrc && (
-        <div
-          className="absolute rotate-[-6deg] transition-transform duration-300 ease-out group-hover:-translate-y-[2px] group-hover:rotate-[-10deg]"
-          style={{
-            top: large ? "10%" : "9%",
-            left: large ? "9%" : "8%",
-            width: large ? 56 : 38,
-            height: large ? 56 : 38,
-            transformOrigin: "center",
-          }}
-        >
-          <div
-            className="relative w-full h-full"
-            style={{
-              filter:
-                "drop-shadow(0 1px 1px rgba(0,0,0,0.18)) drop-shadow(0 2px 4px rgba(0,0,0,0.10))",
-            }}
-          >
-            <Image
-              src={stampSrc}
-              alt="Postage stamp"
-              fill
-              sizes="56px"
-              className="object-contain"
-              draggable={false}
-            />
-          </div>
-        </div>
-      )}
+      <EnvelopeStampCluster stamps={stamps} large={large} />
     </div>
   );
 }
@@ -314,7 +340,7 @@ function ClosedEnvelopeArt({
 //
 // Render order (bottom → top):
 //   1. base envelope SVG
-//   2. optional postage stamp (compose-only; null on vault cards & read screen)
+//   2. optional postage stamp(s) on the flap (closed + opened)
 //   3. text (clipped to VISIBLE_PAPER_CLIP), z-8
 //   4. flower, z-15 (on top of text on the paper)
 //   5. V-flap duplicate clipped to flap polygon, z-22 (tucks stems; flap
@@ -329,7 +355,7 @@ function OpenedEnvelopeArt({
   body,
   fontStyle,
   large = false,
-  stamp = null,
+  stamps = [],
   previewCharLimit,
   imageSizes,
 }: {
@@ -338,8 +364,7 @@ function OpenedEnvelopeArt({
   body?: string;
   fontStyle?: FontStyle;
   large?: boolean;
-  /** Postage mark on the envelope (same artwork as the sealed envelope). */
-  stamp?: StampType | null;
+  stamps?: StampType[];
   /** Override default body preview length (`ENVELOPE_PREVIEW_BODY_MAX_CHARS`). */
   previewCharLimit?: number;
   /** `next/image` sizes for the base SVG; defaults from `large`. */
@@ -348,7 +373,6 @@ function OpenedEnvelopeArt({
   const sizes =
     imageSizes ?? (large ? "320px" : "(max-width: 768px) 50vw, 240px");
   const flowerSrc = flower ? FLOWER_IMAGE[flower] : null;
-  const stampSrc = stamp ? STAMP_ART_PATH[stamp] : null;
 
   const firstPage = (body ?? "").split(PAGE_SEPARATOR)[0]?.trim() ?? "";
   const bodyLimit = previewCharLimit ?? ENVELOPE_PREVIEW_BODY_MAX_CHARS;
@@ -388,36 +412,7 @@ function OpenedEnvelopeArt({
         draggable={false}
       />
 
-      {/* Postage stamp (same corner treatment as the sealed envelope). */}
-      {stampSrc && (
-        <div
-          className="absolute z-[1] pointer-events-none rotate-[-6deg] transition-transform duration-300 ease-out group-hover:-translate-y-[2px] group-hover:rotate-[-10deg]"
-          style={{
-            top: large ? "10%" : "9%",
-            left: large ? "9%" : "8%",
-            width: large ? 56 : 38,
-            height: large ? 56 : 38,
-            transformOrigin: "center",
-          }}
-        >
-          <div
-            className="relative w-full h-full"
-            style={{
-              filter:
-                "drop-shadow(0 1px 1px rgba(0,0,0,0.18)) drop-shadow(0 2px 4px rgba(0,0,0,0.10))",
-            }}
-          >
-            <Image
-              src={stampSrc}
-              alt="Postage stamp"
-              fill
-              sizes="56px"
-              className="object-contain"
-              draggable={false}
-            />
-          </div>
-        </div>
-      )}
+      <EnvelopeStampCluster stamps={stamps} large={large} />
 
       {/* 2. Text overlay clipped to the visible paper polygon ───────────
             VISIBLE_PAPER_CLIP describes the exact region of the paper
@@ -541,7 +536,7 @@ export function EnvelopeComposePreview({
             body={body}
             fontStyle={fontStyle}
             flower={flower}
-            stamp={null}
+            stamps={[]}
             large={false}
           />
         </div>

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { EnvelopeView } from "./EnvelopeView";
 import type { Letter } from "@/lib/constants";
+import { stampsFromLetter } from "@/lib/letter-content";
 
 interface VaultGridProps {
   letters: Letter[];
@@ -59,7 +60,7 @@ export function VaultGrid({ letters }: VaultGridProps) {
               day: "numeric",
               month: "short",
             })}
-            stamp={letter.stamp_type}
+            stamps={stampsFromLetter(letter)}
             flower={letter.flower_type}
             isOpened={letter.is_opened}
             cardMode

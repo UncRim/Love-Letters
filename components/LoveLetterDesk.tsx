@@ -16,13 +16,14 @@ import {
   THEME_CONFIG,
   FONT_META,
   PAGE_SEPARATOR,
-  STAMP_ART_PATH,
   type Letter,
   type FontStyle,
   type ColorTheme,
   type StampType,
   type FlowerType,
 } from "@/lib/constants";
+import { stampAssetPath } from "@/lib/constants/assets";
+import { stampsFromLetter } from "@/lib/letter-content";
 
 type View = "vault" | "compose" | "reading";
 
@@ -52,7 +53,7 @@ export function LoveLetterDesk({
   const [curPage, setCurPage] = useState(0);
   const [fontStyle, setFontStyle] = useState<FontStyle>("dancing_script");
   const [colorTheme, setColorTheme] = useState<ColorTheme>("vintage");
-  const [stampType, setStampType] = useState<StampType | null>(null);
+  const [stampTypes, setStampTypes] = useState<StampType[]>([]);
   const [flowerType, setFlowerType] = useState<FlowerType>("red_1");
   const [secretKey, setSecretKey] = useState("");
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -69,7 +70,7 @@ export function LoveLetterDesk({
     setCurPage(0);
     setFontStyle("dancing_script");
     setColorTheme("vintage");
-    setStampType(null);
+    setStampTypes([]);
     setFlowerType("red_1");
     setSecretKey("");
     setShareUrl(null);
@@ -174,7 +175,7 @@ export function LoveLetterDesk({
           secretKey,
           font_style: fontStyle,
           color_theme: colorTheme,
-          stamp_id: stampType,
+          stamp_ids: stampTypes,
           flower_id: flowerType,
         }),
       });
@@ -373,7 +374,7 @@ export function LoveLetterDesk({
                                 date={fmtDate(
                                   letter.delivered_at || letter.created_at
                                 )}
-                                stamp={letter.stamp_type}
+                                stamps={stampsFromLetter(letter)}
                                 flower={letter.flower_type}
                                 isOpened={false}
                                 cardMode
@@ -417,7 +418,7 @@ export function LoveLetterDesk({
                                 date={fmtDate(
                                   letter.delivered_at || letter.created_at
                                 )}
-                                stamp={letter.stamp_type}
+                                stamps={stampsFromLetter(letter)}
                                 flower={letter.flower_type}
                                 isOpened
                                 cardMode
@@ -469,7 +470,7 @@ export function LoveLetterDesk({
                         month: "short",
                         year: "numeric",
                       })}
-                      stamp={activeLetter.stamp_type}
+                      stamps={stampsFromLetter(activeLetter)}
                       flower={activeLetter.flower_type}
                       isOpened={activeLetter.is_opened}
                       body={activeLetter.body}
@@ -514,7 +515,7 @@ export function LoveLetterDesk({
                           }}
                           animationKey={animKey}
                           widePaper
-                          stamp={activeLetter.stamp_type}
+                          stamps={stampsFromLetter(activeLetter)}
                         />
                       </motion.div>
                     )}
@@ -630,7 +631,7 @@ export function LoveLetterDesk({
 
                       {/* Stamp area — landmark art matches the sealed envelope */}
                       <div
-                        className="absolute z-[4] top-6 right-4 sm:right-6 flex flex-col items-center justify-center w-[58px] min-h-[72px] rounded-[4px] pointer-events-none px-1 py-2"
+                        className="absolute z-[4] top-5 right-3 sm:top-6 sm:right-5 flex flex-row flex-wrap items-center justify-center gap-1.5 min-w-[118px] sm:min-w-[128px] min-h-[96px] sm:min-h-[104px] rounded-[6px] pointer-events-none px-2 py-2.5"
                         style={{
                           border: `1.5px dashed ${
                             colorTheme === "midnight"
@@ -643,16 +644,24 @@ export function LoveLetterDesk({
                               : "rgba(255,253,248,0.5)",
                         }}
                       >
-                        {stampType ? (
-                          <div className="relative w-12 h-12 rotate-[-8deg]">
-                            <Image
-                              src={STAMP_ART_PATH[stampType]}
-                              alt=""
-                              fill
-                              className="object-contain"
-                              sizes="48px"
-                            />
-                          </div>
+                        {stampTypes.length > 0 ? (
+                          stampTypes.map((s, i) => (
+                            <div
+                              key={`${s}-${i}`}
+                              className="relative w-[46px] h-[46px] sm:w-[52px] sm:h-[52px]"
+                              style={{
+                                transform: `rotate(${i === 0 ? -8 : 6}deg)`,
+                              }}
+                            >
+                              <Image
+                                src={stampAssetPath(s)}
+                                alt=""
+                                fill
+                                className="object-contain"
+                                sizes="52px"
+                              />
+                            </div>
+                          ))
                         ) : (
                           <span
                             className={`text-[8px] uppercase tracking-[0.12em] text-center leading-tight px-0.5 ${
@@ -668,7 +677,7 @@ export function LoveLetterDesk({
 
                       {/* Writing area — top padding clears the postage stamp (top-right); ruled lines stay aligned */}
                       <div
-                        className="relative z-[3] flex flex-col flex-1 min-h-0 pb-4 pr-5 pt-[118px] sm:pt-[122px]"
+                        className="relative z-[3] flex flex-col flex-1 min-h-0 pb-4 pr-5 pt-[132px] sm:pt-[138px]"
                         style={{ paddingLeft: 68 }}
                       >
                         <input
@@ -816,8 +825,8 @@ export function LoveLetterDesk({
 
                     {/* Stamp Picker */}
                     <StampPicker
-                      value={stampType}
-                      onChange={setStampType}
+                      value={stampTypes}
+                      onChange={setStampTypes}
                     />
 
                     {/* Flower Picker */}

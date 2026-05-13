@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Letter } from "@/lib/constants";
 import {
   letterPages,
-  stampIdFromLetter,
+  stampsFromLetter,
   fontFromLetter,
   themeFromLetter,
 } from "@/lib/letter-content";
@@ -71,7 +71,7 @@ export default async function LetterPage({ params }: LetterPageProps) {
         fontStyle={fontFromLetter(typedLetter)}
         colorTheme={themeFromLetter(typedLetter)}
         deliveredAt={typedLetter.delivered_at || typedLetter.created_at}
-        stamp={stampIdFromLetter(typedLetter)}
+        stamps={stampsFromLetter(typedLetter)}
       />
       </div>
     </main>

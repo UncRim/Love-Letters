@@ -9,7 +9,7 @@ interface LetterReaderProps {
   fontStyle: FontStyle;
   colorTheme: ColorTheme;
   deliveredAt: string;
-  stamp?: StampType | null;
+  stamps?: StampType[];
 }
 
 export function LetterReader({
@@ -17,7 +17,7 @@ export function LetterReader({
   fontStyle,
   colorTheme,
   deliveredAt,
-  stamp = null,
+  stamps = [],
 }: LetterReaderProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [animKey, setAnimKey] = useState(0);
@@ -35,7 +35,7 @@ export function LetterReader({
         setAnimKey((k) => k + 1);
       }}
       animationKey={animKey}
-      stamp={stamp}
+      stamps={stamps}
     />
   );
 }

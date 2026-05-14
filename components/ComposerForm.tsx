@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useRef, useCallback, useTransition, useEffect } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FlowerIcon } from "./FlowerIcon";
+import { PostageStampCluster } from "./PostageStampCluster";
 import { StampPicker } from "./ui/StampPicker";
 import { FlowerPicker } from "./ui/FlowerPicker";
 import { LetterSealSuccessModal } from "./LetterSealSuccessModal";
@@ -18,7 +18,6 @@ import {
   type StampType,
   type FlowerType,
 } from "@/lib/constants";
-import { stampAssetPath } from "@/lib/constants/assets";
 
 const DRAFT_STORAGE_KEY = "velle-compose-draft-v1";
 
@@ -233,51 +232,17 @@ export function ComposerForm() {
             ))}
           </div>
 
-          <div
-            className="absolute z-[4] top-5 right-3 sm:top-6 sm:right-5 flex flex-row flex-wrap items-center justify-center gap-1.5 min-w-[118px] sm:min-w-[128px] min-h-[96px] sm:min-h-[104px] rounded-[6px] pointer-events-none px-2 py-2.5"
-            style={{
-              border: `1.5px dashed ${
-                colorTheme === "midnight"
-                  ? "rgba(255,255,255,0.38)"
-                  : "rgba(90,62,40,0.42)"
-              }`,
-              background:
-                colorTheme === "midnight"
-                  ? "rgba(0,0,0,0.14)"
-                  : "rgba(255,253,248,0.5)",
-            }}
-          >
-            {stampTypes.length > 0 ? (
-              stampTypes.map((s, i) => (
-                <div
-                  key={`${s}-${i}`}
-                  className="relative w-[46px] h-[46px] sm:w-[52px] sm:h-[52px]"
-                  style={{ transform: `rotate(${i === 0 ? -8 : 6}deg)` }}
-                >
-                  <Image
-                    src={stampAssetPath(s)}
-                    alt=""
-                    fill
-                    className="object-contain"
-                    sizes="52px"
-                  />
-                </div>
-              ))
-            ) : (
-              <span
-                className={`text-[8px] uppercase tracking-[0.12em] text-center leading-tight px-0.5 ${
-                  colorTheme === "midnight"
-                    ? "text-stone-400"
-                    : "text-stone-500"
-                }`}
-              >
-                Stamp here
-              </span>
-            )}
-          </div>
+          <PostageStampCluster
+            stamps={stampTypes}
+            variant="sheet"
+            emptyLabel="Stamp here"
+            emptyLabelClassName={
+              colorTheme === "midnight" ? "text-stone-400" : "text-stone-500"
+            }
+          />
 
           <div
-            className="relative z-[3] pb-6 pr-5 pt-[132px] sm:pt-[138px]"
+            className="relative z-[3] pb-6 pr-5 pt-[172px] sm:pt-[184px]"
             style={{ paddingLeft: 68 }}
           >
             <input

@@ -24,7 +24,7 @@ export function StampPicker({ value, onChange }: StampPickerProps) {
       onChange([...value, s]);
       return;
     }
-    onChange([value[0], s]);
+    onChange([...value.slice(1), s]);
   }
 
   return (

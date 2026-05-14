@@ -26,7 +26,7 @@ export const STAMP_TYPES = [
 export type StampType = (typeof STAMP_TYPES)[number];
 
 /** Max postage stamps on one letter (paper + envelope). */
-export const MAX_STAMPS_PER_LETTER = 2;
+export const MAX_STAMPS_PER_LETTER = 3;
 
 export const FLOWER_TYPES = [
   "red_1", "red_2", "red_3", "red_4",

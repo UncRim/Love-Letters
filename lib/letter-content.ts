@@ -60,7 +60,7 @@ export function stampsFromMetadata(
   return out;
 }
 
-/** All stamp IDs on the letter (0–2), for paper and envelope. */
+/** All stamp IDs on the letter (0–3), for paper and envelope. */
 export function stampsFromLetter(letter: Letter): StampType[] {
   const m = letter.metadata as LetterMetadataStored | null | undefined;
   return stampsFromMetadata(m, letter.stamp_type ?? null);

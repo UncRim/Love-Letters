@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useCallback, type ReactNode } from "react";
-import Image from "next/image";
 import { motion, useAnimate, stagger } from "framer-motion";
 import {
   THEME_CONFIG,
@@ -10,7 +9,7 @@ import {
   type FontStyle,
   type StampType,
 } from "@/lib/constants";
-import { stampSrcFromId } from "@/lib/constants/assets";
+import { PostageStampCluster } from "@/components/PostageStampCluster";
 import { FONT_CLASSNAMES } from "@/lib/fonts";
 
 /** Matches `linear-gradient(...) 0 FIRST_LINE_OFFSET / 100% LINE_STEP repeat-y` on the ruled layer. */
@@ -64,7 +63,7 @@ interface LetterViewProps {
   signOff?: string;
   /** Wider paper for reading layout (hero letter vs. compact cards). */
   widePaper?: boolean;
-  /** Postage on the sheet (up to two); omitted when empty. */
+  /** Postage on the sheet (0–3); omitted when empty. */
   stamps?: StampType[] | null;
   /** Extra actions below pagination (e.g. Save to Vault). */
   footerSlot?: ReactNode;
@@ -122,7 +121,13 @@ export function LetterView({
     RULE_FIRST_OFFSET_PX +
     RULE_LINE_STEP_PX / 2 -
     RULE_LINE_STEP_PX * 0.72 +
-    (stampList.length === 0 ? 0 : stampList.length > 1 ? 14 : 10);
+    (stampList.length === 0
+      ? 0
+      : stampList.length === 1
+        ? 22
+        : stampList.length === 2
+          ? 32
+          : 42);
 
   return (
     <div
@@ -166,40 +171,7 @@ export function LetterView({
           ))}
         </div>
 
-        {stampList.length > 0 ? (
-          <div
-            className="absolute z-[4] top-5 right-3 sm:top-6 sm:right-5 flex flex-row flex-wrap items-center justify-center gap-1.5 min-w-[118px] sm:min-w-[128px] min-h-[96px] sm:min-h-[104px] rounded-[6px] pointer-events-none px-2 py-2.5"
-            style={{
-              border: `1.5px dashed ${
-                colorTheme === "midnight"
-                  ? "rgba(255,255,255,0.38)"
-                  : "rgba(90,62,40,0.42)"
-              }`,
-              background:
-                colorTheme === "midnight"
-                  ? "rgba(0,0,0,0.14)"
-                  : "rgba(255,253,248,0.5)",
-            }}
-          >
-            {stampList.map((s, i) => (
-              <div
-                key={`${s}-${i}`}
-                className="relative w-[46px] h-[46px] sm:w-[52px] sm:h-[52px]"
-                style={{
-                  transform: `rotate(${i === 0 ? -8 : 6}deg)`,
-                }}
-              >
-                <Image
-                  src={stampSrcFromId(s)}
-                  alt=""
-                  fill
-                  className="object-contain"
-                  sizes="52px"
-                />
-              </div>
-            ))}
-          </div>
-        ) : null}
+        <PostageStampCluster stamps={stampList} variant="sheet" />
 
         {/* Dog-ear fold — bottom-right of the writing sheet only */}
         <PaperCornerFold paperHex={theme.paperHex} dark={colorTheme === "midnight"} />

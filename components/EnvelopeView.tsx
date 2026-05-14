@@ -8,18 +8,17 @@ import {
   PAGE_SEPARATOR,
   ENVELOPE_PREVIEW_BODY_MAX_CHARS,
   ENVELOPE_PREVIEW_TITLE_MAX_CHARS,
-  MAX_STAMPS_PER_LETTER,
   type StampType,
   type FlowerType,
   type FontStyle,
 } from "@/lib/constants";
-import { stampAssetPath } from "@/lib/constants/assets";
+import { PostageStampCluster } from "@/components/PostageStampCluster";
 import { FONT_CLASSNAMES } from "@/lib/fonts";
 
 interface EnvelopeViewProps {
   title: string | null;
   date: string;
-  /** Up to two postage stamps on the flap. */
+  /** Postage cluster on the flap (closed + opened), up to three. */
   stamps: StampType[];
   flower: FlowerType | null;
   isOpened?: boolean;
@@ -114,60 +113,6 @@ const FLOWER_BOX = {
   width: "39%", //  right edge ≈ 92%
   height: "60%", // bottom ≈ y=208 (well into the V-flap face)
 };
-
-/** Top-left postage cluster on closed/opened envelope artwork (1–2 stamps). */
-function EnvelopeStampCluster({
-  stamps,
-  large,
-}: {
-  stamps: StampType[];
-  large: boolean;
-}) {
-  const list = stamps.slice(0, MAX_STAMPS_PER_LETTER);
-  if (!list.length) return null;
-
-  const singlePx = large ? 62 : 42;
-  const duoPx = large ? 48 : 33;
-
-  return (
-    <div
-      className="absolute flex flex-row items-start pointer-events-none transition-transform duration-300 ease-out group-hover:-translate-y-[2px]"
-      style={{
-        top: large ? "9%" : "8%",
-        left: large ? "7%" : "6%",
-        zIndex: 2,
-        gap: list.length > 1 ? (large ? -4 : -3) : 0,
-      }}
-    >
-      {list.map((s, i) => {
-        const px = list.length > 1 ? duoPx : singlePx;
-        return (
-          <div
-            key={`${s}-${i}`}
-            className="relative shrink-0"
-            style={{
-              width: px,
-              height: px,
-              transform: `rotate(${i === 0 ? -7 : 6}deg)`,
-              transformOrigin: "center",
-              filter:
-                "drop-shadow(0 1px 1px rgba(0,0,0,0.18)) drop-shadow(0 2px 4px rgba(0,0,0,0.10))",
-            }}
-          >
-            <Image
-              src={stampAssetPath(s)}
-              alt=""
-              fill
-              sizes={`${px}px`}
-              className="object-contain"
-              draggable={false}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 export function EnvelopeView({
   title,
@@ -329,7 +274,11 @@ function ClosedEnvelopeArt({
         draggable={false}
       />
 
-      <EnvelopeStampCluster stamps={stamps} large={large} />
+      <PostageStampCluster
+        stamps={stamps}
+        variant="envelope"
+        large={large}
+      />
     </div>
   );
 }
@@ -412,7 +361,11 @@ function OpenedEnvelopeArt({
         draggable={false}
       />
 
-      <EnvelopeStampCluster stamps={stamps} large={large} />
+      <PostageStampCluster
+        stamps={stamps}
+        variant="envelope"
+        large={large}
+      />
 
       {/* 2. Text overlay clipped to the visible paper polygon ───────────
             VISIBLE_PAPER_CLIP describes the exact region of the paper

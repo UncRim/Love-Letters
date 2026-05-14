@@ -638,7 +638,66 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 18px;
+  margin: 0;
+  line-height: 1;
+}
+
+.vault-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1.5rem;
+  border-bottom: 1.5px solid rgba(120, 75, 35, 0.28);
+}
+
+.vault-tab {
+  font-family: var(--font-love-ya), cursive;
+  font-size: 20px;
+  color: #8a5e52;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0.25rem 0.125rem 0.65rem;
+  line-height: 1;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1.5px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.vault-tab:hover {
+  color: #6b3228;
+}
+
+.vault-tab:focus-visible {
+  outline: 2px solid rgba(93, 26, 23, 0.45);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.vault-tab--active {
+  color: #5d1a17;
+  border-bottom-color: #5d1a17;
+}
+
+.vault-tab-empty {
+  font-family: var(--font-dm-sans), sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #7a5850;
+  margin: 0;
+  padding: 1.75rem 0 0.5rem;
+  max-width: 28rem;
+}
+
+/* ~10px from section label (“Unsealed Letters”) to the envelope grid. */
+.vault-letter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .vault-divider {

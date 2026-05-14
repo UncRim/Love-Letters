@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useTransition } from "react";
+import { useState, useRef, useCallback, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { EnvelopeView, EnvelopeComposePreview } from "./EnvelopeView";
@@ -25,6 +25,7 @@ import {
 import { stampsFromLetter } from "@/lib/letter-content";
 
 type View = "vault" | "compose" | "reading";
+type VaultTab = "sealed" | "unsealed";
 
 interface LoveLetterDeskProps {
   initialLetters: Letter[];
@@ -40,6 +41,7 @@ export function LoveLetterDesk({
   const [letters, setLetters] = useState(initialLetters);
   const [activeLetter, setActiveLetter] = useState<Letter | null>(null);
   const [envelopeOpened, setEnvelopeOpened] = useState(false);
+  const [vaultTab, setVaultTab] = useState<VaultTab>("unsealed");
   const [isPending, startTransition] = useTransition();
 
   // Reading state
@@ -227,6 +229,22 @@ export function LoveLetterDesk({
     .slice()
     .sort(sortByDateDesc);
 
+  useEffect(() => {
+    if (
+      vaultTab === "unsealed" &&
+      unsealedLetters.length === 0 &&
+      sealedLetters.length > 0
+    ) {
+      setVaultTab("sealed");
+    } else if (
+      vaultTab === "sealed" &&
+      sealedLetters.length === 0 &&
+      unsealedLetters.length > 0
+    ) {
+      setVaultTab("unsealed");
+    }
+  }, [vaultTab, sealedLetters.length, unsealedLetters.length]);
+
   const fmtDate = (d: string) =>
     new Date(d).toLocaleDateString("en-GB", {
       day: "numeric",
@@ -287,23 +305,13 @@ export function LoveLetterDesk({
             >
               <div className="vault-grain pointer-events-none absolute inset-0" />
 
-              <div className="relative max-w-7xl mx-auto px-6 sm:px-10 py-8">
+              <div className="relative max-w-7xl mx-auto px-6 sm:px-10 pt-4 pb-8 sm:pt-5">
                 {/* Page title — Compose lives in the sticky desk header */}
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div>
                     <h1 className="vault-title">The&nbsp;Vault</h1>
-                    <div className="vault-subtitle mt-1.5 flex items-center gap-2">
-                      <span>
-                        {sealedLetters.length} sealed Letter
-                        {sealedLetters.length !== 1 ? "s" : ""}
-                      </span>
-                      <EnvelopeIcon />
-                    </div>
                   </div>
                 </div>
-
-                {/* Divider */}
-                <div className="vault-divider mt-6 mb-8" />
 
                 {letters.length === 0 ? (
                   <div className="flex flex-col items-center justify-center text-center py-16">
@@ -337,97 +345,150 @@ export function LoveLetterDesk({
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-12">
-                    {/* Sealed Letters */}
-                    {sealedLetters.length > 0 && (
-                      <section>
-                        <h2 className="vault-section-title">
-                          <span>
-                            {sealedLetters.length} Sealed Letter
-                            {sealedLetters.length !== 1 ? "s" : ""}
-                          </span>
-                          <EnvelopeIcon />
-                        </h2>
-                        <motion.div
-                          initial="hidden"
-                          animate="show"
-                          variants={{
-                            hidden: { opacity: 0 },
-                            show: {
-                              opacity: 1,
-                              transition: { staggerChildren: 0.05 },
-                            },
-                          }}
-                          className="vault-grid"
-                        >
-                          {sealedLetters.map((letter) => (
-                            <motion.div
-                              key={letter.id}
-                              variants={{
-                                hidden: { opacity: 0, y: 20 },
-                                show: { opacity: 1, y: 0 },
-                              }}
-                            >
-                              <EnvelopeView
-                                title={letter.title}
-                                date={fmtDate(
-                                  letter.delivered_at || letter.created_at
-                                )}
-                                stamps={stampsFromLetter(letter)}
-                                flower={letter.flower_type}
-                                isOpened={false}
-                                cardMode
-                                onOpen={() => openLetter(letter)}
-                              />
-                            </motion.div>
-                          ))}
-                        </motion.div>
-                      </section>
-                    )}
+                  <div className="mt-6">
+                    <div
+                      className="vault-tabs"
+                      role="tablist"
+                      aria-label="Letters by seal status"
+                    >
+                      <button
+                        type="button"
+                        id="vault-tab-sealed"
+                        role="tab"
+                        aria-selected={vaultTab === "sealed"}
+                        aria-controls="vault-panel-sealed"
+                        className={
+                          vaultTab === "sealed"
+                            ? "vault-tab vault-tab--active"
+                            : "vault-tab"
+                        }
+                        onClick={() => setVaultTab("sealed")}
+                      >
+                        <span>
+                          {sealedLetters.length} Sealed Letter
+                          {sealedLetters.length !== 1 ? "s" : ""}
+                        </span>
+                        <EnvelopeIcon />
+                      </button>
+                      <button
+                        type="button"
+                        id="vault-tab-unsealed"
+                        role="tab"
+                        aria-selected={vaultTab === "unsealed"}
+                        aria-controls="vault-panel-unsealed"
+                        className={
+                          vaultTab === "unsealed"
+                            ? "vault-tab vault-tab--active"
+                            : "vault-tab"
+                        }
+                        onClick={() => setVaultTab("unsealed")}
+                      >
+                        <span>Unsealed Letters</span>
+                        <EnvelopeIcon />
+                      </button>
+                    </div>
 
-                    {/* Unsealed Letters */}
-                    {unsealedLetters.length > 0 && (
-                      <section>
-                        <h2 className="vault-section-title">
-                          <span>Unsealed Letters</span>
-                          <EnvelopeIcon />
-                        </h2>
-                        <motion.div
-                          initial="hidden"
-                          animate="show"
-                          variants={{
-                            hidden: { opacity: 0 },
-                            show: {
-                              opacity: 1,
-                              transition: { staggerChildren: 0.05 },
-                            },
-                          }}
-                          className="vault-grid"
-                        >
-                          {unsealedLetters.map((letter) => (
-                            <motion.div
-                              key={letter.id}
-                              variants={{
-                                hidden: { opacity: 0, y: 20 },
-                                show: { opacity: 1, y: 0 },
-                              }}
-                            >
-                              <EnvelopeView
-                                title={letter.title}
-                                date={fmtDate(
-                                  letter.delivered_at || letter.created_at
-                                )}
-                                stamps={stampsFromLetter(letter)}
-                                flower={letter.flower_type}
-                                isOpened
-                                cardMode
-                                body={letter.body}
-                                fontStyle={letter.font_style}
-                                onOpen={() => openLetter(letter)}
-                              />
-                            </motion.div>
-                          ))}
-                        </motion.div>
+                    {vaultTab === "sealed" ? (
+                      <section
+                        id="vault-panel-sealed"
+                        role="tabpanel"
+                        aria-labelledby="vault-tab-sealed"
+                        className="vault-letter-section pt-2.5"
+                      >
+                        {sealedLetters.length === 0 ? (
+                          <p className="vault-tab-empty">
+                            No sealed letters yet. New deliveries appear here
+                            until you open them.
+                          </p>
+                        ) : (
+                          <motion.div
+                            key="sealed-grid"
+                            initial="hidden"
+                            animate="show"
+                            variants={{
+                              hidden: { opacity: 0 },
+                              show: {
+                                opacity: 1,
+                                transition: { staggerChildren: 0.05 },
+                              },
+                            }}
+                            className="vault-grid"
+                          >
+                            {sealedLetters.map((letter) => (
+                              <motion.div
+                                key={letter.id}
+                                variants={{
+                                  hidden: { opacity: 0, y: 20 },
+                                  show: { opacity: 1, y: 0 },
+                                }}
+                              >
+                                <EnvelopeView
+                                  title={letter.title}
+                                  date={fmtDate(
+                                    letter.delivered_at || letter.created_at
+                                  )}
+                                  stamps={stampsFromLetter(letter)}
+                                  flower={letter.flower_type}
+                                  isOpened={false}
+                                  cardMode
+                                  onOpen={() => openLetter(letter)}
+                                />
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </section>
+                    ) : (
+                      <section
+                        id="vault-panel-unsealed"
+                        role="tabpanel"
+                        aria-labelledby="vault-tab-unsealed"
+                        className="vault-letter-section pt-2.5"
+                      >
+                        {unsealedLetters.length === 0 ? (
+                          <p className="vault-tab-empty">
+                            No unsealed letters yet. Open one from the Sealed
+                            tab to read it here.
+                          </p>
+                        ) : (
+                          <motion.div
+                            key="unsealed-grid"
+                            initial="hidden"
+                            animate="show"
+                            variants={{
+                              hidden: { opacity: 0 },
+                              show: {
+                                opacity: 1,
+                                transition: { staggerChildren: 0.05 },
+                              },
+                            }}
+                            className="vault-grid"
+                          >
+                            {unsealedLetters.map((letter) => (
+                              <motion.div
+                                key={letter.id}
+                                variants={{
+                                  hidden: { opacity: 0, y: 20 },
+                                  show: { opacity: 1, y: 0 },
+                                }}
+                              >
+                                <EnvelopeView
+                                  title={letter.title}
+                                  date={fmtDate(
+                                    letter.delivered_at || letter.created_at
+                                  )}
+                                  stamps={stampsFromLetter(letter)}
+                                  flower={letter.flower_type}
+                                  isOpened
+                                  cardMode
+                                  body={letter.body}
+                                  fontStyle={letter.font_style}
+                                  onOpen={() => openLetter(letter)}
+                                />
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        )}
                       </section>
                     )}
                   </div>

@@ -140,20 +140,29 @@ export function EnvelopeView({
         transition={{ type: "spring", stiffness: 320, damping: 22 }}
         className="group relative block w-full bg-transparent border-0 p-0 cursor-pointer text-left"
       >
-        {isOpened ? (
-          <OpenedEnvelopeArt
-            flower={flower}
-            title={title}
-            body={body}
-            fontStyle={fontStyle}
-            stamps={stamps}
-          />
-        ) : (
-          <ClosedEnvelopeArt stamps={stamps} />
-        )}
+        {/*
+          SVG viewBoxes include transparent padding below the artwork (especially
+          opened-blank). Negative margin pulls the title caption up to sit ~2px
+          under the visible envelope; % resolves vs. card width.
+        */}
+        <div
+          className={`w-full ${isOpened ? "-mb-[23%]" : "-mb-[16%]"}`}
+        >
+          {isOpened ? (
+            <OpenedEnvelopeArt
+              flower={flower}
+              title={title}
+              body={body}
+              fontStyle={fontStyle}
+              stamps={stamps}
+            />
+          ) : (
+            <ClosedEnvelopeArt stamps={stamps} />
+          )}
+        </div>
 
-        {/* Caption: tighter to envelope; title larger than date */}
-        <div className="mt-2 flex flex-col items-center gap-0 px-2 pt-0.5">
+        {/* Caption: 2px gap below visible envelope */}
+        <div className="mt-0.5 flex flex-col items-center gap-0 px-2 pt-0">
           <p
             className="truncate max-w-full text-[17px] leading-snug font-medium"
             style={{

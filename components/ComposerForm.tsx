@@ -7,6 +7,7 @@ import { PostageStampCluster } from "./PostageStampCluster";
 import { StampPicker } from "./ui/StampPicker";
 import { FlowerPicker } from "./ui/FlowerPicker";
 import { LetterSealSuccessModal } from "./LetterSealSuccessModal";
+import { SendMailIcon } from "./SendMailIcon";
 import { FONT_CLASSNAMES } from "@/lib/fonts";
 import {
   THEME_CONFIG,
@@ -468,11 +469,18 @@ export function ComposerForm() {
           }
           className={`vault-compose-btn w-full justify-center py-3 text-[17px] transition-all disabled:opacity-40 ${saved ? "vault-compose-btn--success" : ""}`}
         >
-          {saving
-            ? "Sealing..."
-            : saved
-              ? "Sealed ✓"
-              : "Seal & Send ❧"}
+          {saving ? (
+            "Sealing..."
+          ) : saved ? (
+            "Sealed ✓"
+          ) : (
+            <>
+              <span aria-hidden className="inline-flex shrink-0 opacity-[0.92]">
+                <SendMailIcon size={18} />
+              </span>
+              Seal & Send
+            </>
+          )}
         </button>
       </div>
     </div>

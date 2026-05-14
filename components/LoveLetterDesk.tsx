@@ -10,6 +10,7 @@ import { StampPicker } from "./ui/StampPicker";
 import { BrandLogo } from "./BrandLogo";
 import { FlowerPicker } from "./ui/FlowerPicker";
 import { LetterSealSuccessModal } from "./LetterSealSuccessModal";
+import { SendMailIcon } from "./SendMailIcon";
 import { createClient } from "@/lib/supabase/client";
 import { FONT_CLASSNAMES } from "@/lib/fonts";
 import {
@@ -273,9 +274,11 @@ export function LoveLetterDesk({
             }
             className="vault-compose-btn shrink-0 px-5 py-2.5 text-[16px] disabled:opacity-40 disabled:pointer-events-none"
           >
-            <span aria-hidden className="text-[15px] leading-none">
-              🕊
-            </span>
+            {saving || saved ? null : (
+              <span aria-hidden className="inline-flex shrink-0 opacity-[0.92]">
+                <SendMailIcon size={17} />
+              </span>
+            )}
             <span>{saving ? "Sending…" : saved ? "Sent ✓" : "Send"}</span>
           </button>
         ) : (
@@ -894,11 +897,18 @@ export function LoveLetterDesk({
                       }
                       className={`vault-compose-btn w-full justify-center py-3.5 text-[17px] transition-all disabled:opacity-40 disabled:pointer-events-none ${saved ? "vault-compose-btn--success" : ""}`}
                     >
-                      {saving
-                        ? "Sealing…"
-                        : saved
-                          ? "Sealed ✓"
-                          : "Seal & send ❧"}
+                      {saving ? (
+                        "Sealing…"
+                      ) : saved ? (
+                        "Sealed ✓"
+                      ) : (
+                        <>
+                          <span aria-hidden className="inline-flex shrink-0 opacity-[0.92]">
+                            <SendMailIcon size={18} />
+                          </span>
+                          Seal & send
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

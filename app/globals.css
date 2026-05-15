@@ -572,9 +572,9 @@ body {
 .desk-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 1rem;
-  padding: 1rem 1.5rem;
+  padding: 1rem 0;
   border-bottom: 1px solid var(--desk-header-border);
   background: var(--brand-surface-header);
   backdrop-filter: blur(10px);

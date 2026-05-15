@@ -255,42 +255,44 @@ export function LoveLetterDesk({
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <header className="desk-header sticky top-0 z-40 shrink-0">
-        <button type="button" onClick={goToVault} className="text-left group min-w-0">
-          <span className="inline-block transition-opacity group-hover:opacity-[0.88]">
-            <BrandLogo size="desk" />
-          </span>
-        </button>
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-6 sm:px-10">
+          <button type="button" onClick={goToVault} className="text-left group min-w-0">
+            <span className="inline-block transition-opacity group-hover:opacity-[0.88]">
+              <BrandLogo size="desk" />
+            </span>
+          </button>
 
-        {view === "compose" ? (
-          <button
-            type="button"
-            onClick={handleSeal}
-            disabled={
-              saving ||
-              !title.trim() ||
-              pages.every((p) => !p.trim()) ||
-              secretKey.length < 4 ||
-              saved
-            }
-            className="vault-compose-btn shrink-0 px-5 py-2.5 text-[16px] disabled:opacity-40 disabled:pointer-events-none"
-          >
-            {saving || saved ? null : (
-              <span aria-hidden className="inline-flex shrink-0 opacity-[0.92]">
-                <SendMailIcon size={17} />
-              </span>
-            )}
-            <span>{saving ? "Sending…" : saved ? "Sent ✓" : "Send"}</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={goToCompose}
-            className="vault-compose-btn shrink-0 py-2.5 px-5 text-[15px]"
-          >
-            <span>Compose</span>
-            <PencilIcon />
-          </button>
-        )}
+          {view === "compose" ? (
+            <button
+              type="button"
+              onClick={handleSeal}
+              disabled={
+                saving ||
+                !title.trim() ||
+                pages.every((p) => !p.trim()) ||
+                secretKey.length < 4 ||
+                saved
+              }
+              className="vault-compose-btn shrink-0 px-5 py-2.5 text-[16px] disabled:opacity-40 disabled:pointer-events-none"
+            >
+              {saving || saved ? null : (
+                <span aria-hidden className="inline-flex shrink-0 opacity-[0.92]">
+                  <SendMailIcon size={17} />
+                </span>
+              )}
+              <span>{saving ? "Sending…" : saved ? "Sent ✓" : "Send"}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={goToCompose}
+              className="vault-compose-btn shrink-0 py-2.5 px-5 text-[15px]"
+            >
+              <span>Compose</span>
+              <PencilIcon />
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Content */}

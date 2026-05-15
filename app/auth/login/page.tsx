@@ -6,6 +6,12 @@ import Image from "next/image";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { BrandLogo } from "@/components/BrandLogo";
+import { syncGuestLettersToAccount } from "@/lib/guest-session";
+import {
+  flushPendingVaultClaim,
+  completeVaultClaimForLetter,
+  clearPendingClaimStorage,
+} from "@/lib/vault-claim";
 
 type Mode = "password" | "signup" | "magic";
 
@@ -54,6 +60,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [showPass, setShowPass] = useState(false);
+  const [claimLetterId, setClaimLetterId] = useState<string | null>(null);
 
   const [testiIdx, setTestiIdx] = useState(0);
   const reduceMotion = useReducedMotion();
@@ -81,7 +88,30 @@ export default function LoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setRedirectAfterAuth(safeRedirectPath(params.get("redirect_to")));
+    if (params.get("mode") === "signup") setMode("signup");
+    const claim = params.get("claim");
+    if (claim && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claim)) {
+      setClaimLetterId(claim);
+    }
   }, []);
+
+  async function runAfterAuthSuccess() {
+    await syncGuestLettersToAccount();
+    if (claimLetterId) {
+      try {
+        const secret = window.sessionStorage.getItem(
+          `inked-claim-secret:${claimLetterId}`,
+        );
+        if (secret) {
+          const r = await completeVaultClaimForLetter(claimLetterId, secret);
+          if (r.ok) clearPendingClaimStorage(claimLetterId);
+        }
+      } catch {
+        /* private mode */
+      }
+    }
+    await flushPendingVaultClaim();
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -103,7 +133,7 @@ export default function LoginPage() {
         if (error) setErrorMsg(error.message);
         else setSent(true);
       } else if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -111,14 +141,20 @@ export default function LoginPage() {
           },
         });
         if (error) setErrorMsg(error.message);
-        else setSent(true);
+        else if (data.session) {
+          await runAfterAuthSuccess();
+          router.push(redirectAfterAuth);
+        } else setSent(true);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) setErrorMsg(error.message);
-        else router.push(redirectAfterAuth);
+        else {
+          await runAfterAuthSuccess();
+          router.push(redirectAfterAuth);
+        }
       }
     } catch (err) {
       setErrorMsg(

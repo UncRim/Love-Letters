@@ -37,10 +37,11 @@ export default async function LetterPage({ params }: LetterPageProps) {
 
   const typedLetter = letter as Letter;
 
-  if (
-    typedLetter.recipient_id !== user.id &&
-    typedLetter.author_id !== user.id
-  ) {
+  const isRecipient = typedLetter.recipient_id === user.id;
+  const isAuthor =
+    typedLetter.author_id != null && typedLetter.author_id === user.id;
+
+  if (!isRecipient && !isAuthor) {
     notFound();
   }
 
@@ -57,22 +58,19 @@ export default async function LetterPage({ params }: LetterPageProps) {
   return (
     <main className="flex-1 desk-canvas vault-page relative min-h-full flex flex-col">
       <div className="vault-grain pointer-events-none absolute inset-0" />
-      <div className="relative flex-1 py-10 px-4">
-      <div className="max-w-lg mx-auto mb-6">
-        <a
-          href="/vault"
-          className="desk-back-link"
-        >
-          ← Back to vault
-        </a>
-      </div>
-      <LetterReader
-        pages={pages}
-        fontStyle={fontFromLetter(typedLetter)}
-        colorTheme={themeFromLetter(typedLetter)}
-        deliveredAt={typedLetter.delivered_at || typedLetter.created_at}
-        stamps={stampsFromLetter(typedLetter)}
-      />
+      <div className="relative flex-1 py-10 desk-shell-inline">
+        <div className="max-w-lg mx-auto mb-6">
+          <a href="/vault" className="desk-back-link">
+            ← Back to vault
+          </a>
+        </div>
+        <LetterReader
+          pages={pages}
+          fontStyle={fontFromLetter(typedLetter)}
+          colorTheme={themeFromLetter(typedLetter)}
+          deliveredAt={typedLetter.delivered_at || typedLetter.created_at}
+          stamps={stampsFromLetter(typedLetter)}
+        />
       </div>
     </main>
   );

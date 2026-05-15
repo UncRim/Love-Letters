@@ -10,10 +10,10 @@ export function SiteFooter() {
       aria-label="Site footer"
     >
       <div
-        className="pointer-events-none mx-auto h-px max-w-6xl bg-gradient-to-r from-transparent via-[rgba(184,147,58,0.28)] to-transparent px-6 sm:px-10"
+        className="pointer-events-none mx-auto h-px max-w-6xl bg-gradient-to-r from-transparent via-[rgba(184,147,58,0.28)] to-transparent desk-shell-inline"
         aria-hidden
       />
-      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10 sm:flex-row sm:items-end sm:justify-between sm:px-10 sm:py-11">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8 desk-shell-inline py-10 sm:flex-row sm:items-end sm:justify-between sm:py-11 pb-[max(2.5rem,env(safe-area-inset-bottom,0px))]">
         <div className="max-w-md space-y-3">
           <p
             className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#6b4a3a]/75"

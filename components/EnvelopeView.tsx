@@ -33,6 +33,8 @@ interface EnvelopeViewProps {
    * Use a smaller value (e.g. 228) for a sidebar layout next to the letter.
    */
   readingEnvelopeWidth?: number;
+  /** Vault grid: burnished “New” treatment for recently archived letters. */
+  vaultNewHighlight?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,6 +127,7 @@ export function EnvelopeView({
   body,
   fontStyle,
   readingEnvelopeWidth = 320,
+  vaultNewHighlight = false,
 }: EnvelopeViewProps) {
   const [flipped, setFlipped] = useState(false);
 
@@ -138,8 +141,23 @@ export function EnvelopeView({
         onClick={onOpen}
         whileHover={{ y: -4 }}
         transition={{ type: "spring", stiffness: 320, damping: 22 }}
-        className="group relative block w-full bg-transparent border-0 p-0 cursor-pointer text-left"
+        className={`group relative block w-full bg-transparent border-0 p-0 cursor-pointer text-left ${
+          vaultNewHighlight
+            ? "rounded-lg ring-2 ring-[#C5A059]/55 shadow-[0_0_22px_rgba(197,160,89,0.28)]"
+            : ""
+        }`}
       >
+        {vaultNewHighlight ? (
+          <span
+            className="absolute right-1 top-1 z-20 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#3d2818] shadow-sm pointer-events-none"
+            style={{
+              background: "#C5A059",
+              fontFamily: "var(--font-dm-sans), sans-serif",
+            }}
+          >
+            New
+          </span>
+        ) : null}
         {/*
           SVG viewBoxes include transparent padding below the artwork (especially
           opened-blank). Negative margin pulls the title caption up to sit ~2px
@@ -194,12 +212,13 @@ export function EnvelopeView({
   // then the opened envelope fades up into place.
   // ─────────────────────────────────────
   const readingArtLarge = readingEnvelopeWidth >= 280;
-  const readingSizes = `${Math.round(readingEnvelopeWidth)}px`;
+  /** Hint for `next/image` when the envelope scales down on narrow viewports. */
+  const readingSizes = `(max-width: 480px) min(90vw, ${Math.round(readingEnvelopeWidth)}px), ${Math.round(readingEnvelopeWidth)}px`;
 
   return (
     <div
-      className="relative mx-auto"
-      style={{ width: readingEnvelopeWidth, perspective: 900 }}
+      className="relative mx-auto w-full"
+      style={{ maxWidth: readingEnvelopeWidth, perspective: 900 }}
     >
       <AnimatePresence mode="wait">
         {flipped || isOpened ? (

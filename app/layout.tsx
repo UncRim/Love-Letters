@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import {
   dancingScript,
   caveat,
-  sacramento,
+  lovedByTheKing,
+  lumanosimo,
+  longCang,
   playfairDisplay,
   cormorantGaramond,
   imFellEnglish,
@@ -29,7 +31,7 @@ export const viewport: Viewport = {
   themeColor: "#fdf6e3",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -40,7 +42,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${dancingScript.variable} ${caveat.variable} ${sacramento.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} ${imFellEnglish.variable} ${jost.variable} ${loveYaLikeASister.variable} ${dmSans.variable} h-full antialiased`}
+      className={`${lovedByTheKing.variable} ${lumanosimo.variable} ${longCang.variable} ${dancingScript.variable} ${caveat.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} ${imFellEnglish.variable} ${jost.variable} ${loveYaLikeASister.variable} ${dmSans.variable} h-full antialiased`}
     >
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.svg" />

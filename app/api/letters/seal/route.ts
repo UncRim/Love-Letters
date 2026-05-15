@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   FONT_STYLES,
   COLOR_THEMES,
@@ -11,7 +12,10 @@ import {
   type ColorTheme,
   type StampType,
 } from "@/lib/constants";
-import type { LetterMetadataStored, LetterContentStored } from "@/lib/letter-content";
+import type {
+  LetterMetadataStored,
+  LetterContentStored,
+} from "@/lib/letter-content";
 
 export const runtime = "nodejs";
 
@@ -69,10 +73,16 @@ export async function POST(req: Request) {
   const flower_id = body.flower_id ?? null;
 
   if (!title || pages.every((p) => !String(p).trim())) {
-    return NextResponse.json({ error: "Title and letter body required." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Title and letter body required." },
+      { status: 400 },
+    );
   }
   if (secretKey.length < 4) {
-    return NextResponse.json({ error: "Secret key must be at least 4 characters." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Secret key must be at least 4 characters." },
+      { status: 400 },
+    );
   }
   if (!font_style || !FONT_STYLES.includes(font_style)) {
     return NextResponse.json({ error: "Invalid font." }, { status: 400 });
@@ -80,13 +90,11 @@ export async function POST(req: Request) {
   if (!color_theme || !COLOR_THEMES.includes(color_theme)) {
     return NextResponse.json({ error: "Invalid theme." }, { status: 400 });
   }
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   const normalizedPages = pages.map((p) => String(p));
   const joinedBody = normalizedPages.join(PAGE_SEPARATOR);
@@ -106,31 +114,80 @@ export async function POST(req: Request) {
 
   const access_key_hash = await bcrypt.hash(secretKey, 10);
 
-  const { data: inserted, error } = await supabase
+  const row = {
+    recipient_id: null as string | null,
+    title,
+    body: joinedBody,
+    content,
+    metadata,
+    font_style,
+    color_theme,
+    stamp_type: stamp_type_col,
+    flower_type: flower_id,
+    delivered_at: new Date().toISOString(),
+    is_draft: false,
+    access_key_hash,
+    is_claimed: false,
+  };
+
+  if (user) {
+    const { data: inserted, error } = await supabase
+      .from("letters")
+      .insert({
+        ...row,
+        author_id: user.id,
+        sender_id: user.id,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("Seal insert error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const origin = new URL(req.url).origin;
+    const shareUrl = `${origin}/open/${inserted.id}`;
+
+    return NextResponse.json({
+      id: inserted.id,
+      shareUrl,
+      guest: false,
+    });
+  }
+
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json(
+      { error: "Server misconfigured." },
+      { status: 500 },
+    );
+  }
+
+  const { data: inserted, error } = await admin
     .from("letters")
     .insert({
-      author_id: user.id,
-      sender_id: user.id,
-      recipient_id: null,
-      title,
-      body: joinedBody,
-      content,
-      metadata,
-      font_style,
-      color_theme,
-      stamp_type: stamp_type_col,
-      flower_type: flower_id,
-      delivered_at: new Date().toISOString(),
-      is_draft: false,
-      access_key_hash,
-      is_claimed: false,
+      ...row,
+      author_id: null,
+      sender_id: null,
     })
     .select("id")
     .single();
 
   if (error) {
-    console.error("Seal insert error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Guest seal insert error:", error);
+    return NextResponse.json(
+      {
+        error:
+          error.message.includes("null value") && error.message.includes("author_id")
+            ? "Database must allow guest letters (run migrations)."
+            : error.message,
+      },
+      { status: 500 },
+    );
   }
 
   const origin = new URL(req.url).origin;
@@ -139,5 +196,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     id: inserted.id,
     shareUrl,
+    guest: true,
   });
 }

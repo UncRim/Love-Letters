@@ -1,4 +1,11 @@
-export const FONT_STYLES = ["dancing_script", "caveat", "sacramento"] as const;
+export const FONT_STYLES = [
+  "loved_by_the_king",
+  "lumanosimo",
+  "long_cang",
+  "love_ya_like_a_sister",
+  "caveat",
+  "dancing_script",
+] as const;
 export type FontStyle = (typeof FONT_STYLES)[number];
 
 export const COLOR_THEMES = ["vintage", "rose", "midnight"] as const;
@@ -257,20 +264,35 @@ export const FONT_META: Record<
   FontStyle,
   { family: string; label: string; style: string }
 > = {
-  dancing_script: {
-    family: "'Dancing Script', cursive",
-    label: "Dancing Script",
-    style: "elegant",
+  loved_by_the_king: {
+    family: "'Loved by the King', cursive",
+    label: "Loved by the King",
+    style: "playful",
+  },
+  lumanosimo: {
+    family: "'Lumanosimo', cursive",
+    label: "Lumanosimo",
+    style: "ink",
+  },
+  long_cang: {
+    family: "'Long Cang', cursive",
+    label: "Long Cang",
+    style: "brush",
+  },
+  love_ya_like_a_sister: {
+    family: "'Love Ya Like A Sister', cursive",
+    label: "Love Ya Like A Sister",
+    style: "bold",
   },
   caveat: {
     family: "'Caveat', cursive",
     label: "Caveat",
     style: "casual",
   },
-  sacramento: {
-    family: "'Sacramento', cursive",
-    label: "Sacramento",
-    style: "formal",
+  dancing_script: {
+    family: "'Dancing Script', cursive",
+    label: "Dancing Script",
+    style: "elegant",
   },
 };
 
@@ -280,7 +302,8 @@ export interface Letter {
   id: string;
   created_at: string;
   delivered_at: string | null;
-  author_id: string;
+  /** Set after sign-in sync for guest-sealed letters; null while still a guest send. */
+  author_id: string | null;
   /** Nullable until recipient claims a share-link letter */
   recipient_id: string | null;
   title: string | null;
@@ -298,4 +321,6 @@ export interface Letter {
   metadata?: unknown;
   access_key_hash?: string | null;
   is_claimed?: boolean;
+  /** When the recipient archived this letter from a share link. */
+  recipient_claimed_at?: string | null;
 }

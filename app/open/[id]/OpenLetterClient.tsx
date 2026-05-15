@@ -19,6 +19,10 @@ import {
   stampsFromLetter,
   flowerIdFromLetter,
 } from "@/lib/letter-content";
+import {
+  storeClaimSecretForRedirect,
+  completeVaultClaimForLetter,
+} from "@/lib/vault-claim";
 import type { OpenEnvelopeDTO } from "@/lib/types/open-letter";
 
 interface OpenLetterClientProps {
@@ -42,7 +46,7 @@ export default function OpenLetterClient({
 
   const formattedDate = new Date(envelope.deliveredAt).toLocaleDateString(
     "en-GB",
-    { day: "numeric", month: "short", year: "numeric" }
+    { day: "numeric", month: "short", year: "numeric" },
   );
 
   async function unlock() {
@@ -70,24 +74,33 @@ export default function OpenLetterClient({
     }
   }
 
-  async function claim() {
-    setClaimBusy(true);
-    try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        const next = `/auth/login?redirect_to=${encodeURIComponent(`/open/${letterId}`)}`;
-        window.location.href = next;
+  async function handleArchive() {
+    setErr("");
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      if (secret.length < 1) {
+        setErr("Enter your secret key above before archiving.");
         return;
       }
-      const res = await fetch(`/api/letters/${letterId}/claim`, {
-        method: "POST",
-      });
-      if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
-        setErr(data.error ?? "Could not save to vault.");
+      storeClaimSecretForRedirect(letterId, secret);
+      window.location.href = `/auth/signup?claim=${encodeURIComponent(letterId)}&redirect_to=${encodeURIComponent("/vault")}`;
+      return;
+    }
+
+    if (secret.length < 1) {
+      setErr("Enter your secret key to archive this letter.");
+      return;
+    }
+
+    setClaimBusy(true);
+    try {
+      const result = await completeVaultClaimForLetter(letterId, secret);
+      if (!result.ok) {
+        setErr(result.error ?? "Could not archive letter.");
         return;
       }
       setClaimed(true);
@@ -95,7 +108,7 @@ export default function OpenLetterClient({
         window.location.href = "/vault";
       });
     } catch {
-      setErr("Could not claim letter.");
+      setErr("Could not archive letter.");
     } finally {
       setClaimBusy(false);
     }
@@ -117,9 +130,7 @@ export default function OpenLetterClient({
   const deliveredAt =
     letter?.delivered_at ?? letter?.created_at ?? envelope.deliveredAt;
 
-  const showClaim = Boolean(
-    letter && !letter.recipient_id && !claimed
-  );
+  const showArchive = Boolean(letter && !letter.recipient_id && !claimed);
 
   return (
     <main className="flex-1 desk-canvas vault-page relative min-h-full flex flex-col bg-[#f8f4ee]">
@@ -128,7 +139,7 @@ export default function OpenLetterClient({
         aria-hidden
       />
       <div
-        className="relative flex-1 py-10 px-4 flex flex-col items-center"
+        className="relative flex-1 py-10 desk-shell-inline flex flex-col items-center"
         style={{
           backgroundImage: `
             linear-gradient(rgba(230,215,185,0.35), rgba(230,215,185,0.35)),
@@ -177,7 +188,7 @@ export default function OpenLetterClient({
                   value={secret}
                   onChange={(e) => setSecret(e.target.value)}
                   placeholder="Enter the Secret Key to unlatch this letter."
-                  className="w-full rounded-lg border border-[#d4c4a8] bg-white px-3 py-2.5 text-[14px] text-[#0B0D0F] placeholder:text-stone-400/70 font-[family-name:var(--font-dm-sans)] focus:outline-none focus:ring-2 focus:ring-[#6B1B1B]/30"
+                  className="w-full rounded-lg border border-[#d4c4a8] bg-white px-3 py-2.5 text-base text-[#0B0D0F] placeholder:text-stone-400/70 font-[family-name:var(--font-dm-sans)] focus:outline-none focus:ring-2 focus:ring-[#6B1B1B]/30"
                 />
                 {err ? (
                   <p className="mt-2 text-[12px] text-red-700 font-[family-name:var(--font-dm-sans)]">
@@ -220,30 +231,23 @@ export default function OpenLetterClient({
                 animationKey={animKey}
                 stamps={unlockedStamps}
                 widePaper
+                archiveToVault={
+                  showArchive
+                    ? {
+                        onArchive: () => void handleArchive(),
+                        loading: claimBusy,
+                        disabled: claimBusy,
+                      }
+                    : null
+                }
                 footerSlot={
-                  showClaim ? (
-                    <div className="flex justify-center pt-2">
-                      <button
-                        type="button"
-                        onClick={() => void claim()}
-                        disabled={claimBusy}
-                        className="rounded-xl px-6 py-3 text-[15px] font-medium text-[#f5e9d4] shadow-md transition-opacity disabled:opacity-50 font-[family-name:var(--font-dm-sans)]"
-                        style={{
-                          background: "#6B1B1B",
-                          boxShadow: "0 4px 14px rgba(107,27,27,0.35)",
-                        }}
-                      >
-                        {claimBusy ? "Saving\u2026" : "Save to my Vault"}
-                      </button>
-                    </div>
-                  ) : !showClaim && letter.recipient_id ? (
+                  !showArchive && letter.recipient_id ? (
                     <p className="text-center text-[13px] text-[#5d4a38] font-[family-name:var(--font-caveat)]">
                       This letter lives in someone&apos;s vault.
                     </p>
                   ) : null
                 }
               />
-
             </motion.div>
           )}
         </AnimatePresence>

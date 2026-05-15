@@ -67,6 +67,12 @@ interface LetterViewProps {
   stamps?: StampType[] | null;
   /** Extra actions below pagination (e.g. Save to Vault). */
   footerSlot?: ReactNode;
+  /** Primary “Archive to my Vault” CTA (recipient open-link flow). */
+  archiveToVault?: {
+    onArchive: () => void;
+    disabled?: boolean;
+    loading?: boolean;
+  } | null;
 }
 
 export function LetterView({
@@ -82,6 +88,7 @@ export function LetterView({
   widePaper = false,
   stamps = null,
   footerSlot = null,
+  archiveToVault = null,
 }: LetterViewProps) {
   const theme = THEME_CONFIG[colorTheme];
   const fontCls = FONT_CLASSNAMES[fontStyle];
@@ -152,15 +159,12 @@ export function LetterView({
 
         {/* Red margin line */}
         <div
-          className="absolute top-0 bottom-0 pointer-events-none z-[1]"
-          style={{ left: 54, width: 1, background: theme.margin }}
+          className="absolute top-0 bottom-0 left-[40px] z-[1] w-px pointer-events-none sm:left-[54px]"
+          style={{ background: theme.margin }}
         />
 
         {/* Hole punches */}
-        <div
-          className="absolute top-0 bottom-0 z-[2] flex flex-col gap-[100px] pt-[55px] pointer-events-none"
-          style={{ left: 17 }}
-        >
+        <div className="absolute left-3 top-0 bottom-0 z-[2] flex flex-col gap-[100px] pt-[55px] pointer-events-none sm:left-[17px]">
           {[0, 1, 2].map((i) => (
             <div
               key={i}
@@ -178,16 +182,15 @@ export function LetterView({
 
         {/* Content — line-height = rule step keeps each wrapped line between rules */}
         <div
-          className={`relative z-[3] pb-6 pr-5 ${fontCls}`}
+          className={`relative z-[3] pb-6 pl-12 pr-3 sm:pl-14 sm:pr-5 lg:pl-[68px] ${fontCls}`}
           style={{
-            paddingLeft: 68,
             paddingTop: contentPadTop,
             lineHeight: lineHeightPx,
           }}
         >
           {/* Date */}
           <motion.span
-            className={`block text-[16px] sm:text-[17px] mb-0 ${theme.ink} opacity-[0.62]`}
+            className={`mb-0 block text-[15px] opacity-[0.62] sm:text-[16px] md:text-[17px] ${theme.ink}`}
             style={{ lineHeight: lineHeightPx }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.62 }}
@@ -207,7 +210,7 @@ export function LetterView({
             {paragraphs.map((para, i) => (
               <p
                 key={`${animationKey}-${i}`}
-                className={`letter-para text-[20px] sm:text-[22px] opacity-0 ${theme.ink}`}
+                className={`letter-para text-[18px] opacity-0 sm:text-[20px] md:text-[22px] ${theme.ink}`}
                 style={{
                   lineHeight: lineHeightPx,
                   paddingTop: "3px",
@@ -221,7 +224,7 @@ export function LetterView({
           {/* Sign-off (on last page) */}
           {currentPage === totalPages - 1 && (
             <motion.p
-              className={`mt-[28px] text-[18px] sm:text-[19px] opacity-[0.85] whitespace-pre-line ${theme.ink}`}
+              className={`mt-[28px] text-[16px] opacity-[0.85] whitespace-pre-line sm:text-[18px] md:text-[19px] ${theme.ink}`}
               style={{ lineHeight: lineHeightPx, paddingTop: "3px" }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.85 }}
@@ -277,6 +280,40 @@ export function LetterView({
           </button>
         </div>
       )}
+
+      {archiveToVault ? (
+        <div
+          className="border-t border-stone-200/60 bg-[linear-gradient(180deg,rgba(253,250,244,0.35)_0%,transparent_100%)] px-5 pb-5 pt-4 pl-12 sm:pl-14 lg:pl-[68px]"
+          style={{
+            borderColor:
+              colorTheme === "midnight"
+                ? "rgba(255,255,255,0.08)"
+                : undefined,
+          }}
+        >
+          <button
+            type="button"
+            onClick={archiveToVault.onArchive}
+            disabled={archiveToVault.disabled || archiveToVault.loading}
+            className="w-full max-w-md rounded-xl py-3.5 text-[17px] font-medium tracking-[0.02em] text-[#f5e9d4] shadow-[0_4px_16px_rgba(107,27,27,0.38)] transition-opacity disabled:opacity-45 disabled:pointer-events-none"
+            style={{
+              background: "#6B1B1B",
+              fontFamily: "var(--font-cormorant), serif",
+            }}
+          >
+            {archiveToVault.loading
+              ? "Archiving…"
+              : "Archive to my Vault"}
+          </button>
+          <p
+            className="mt-3 max-w-md text-center text-[12px] leading-relaxed text-[#5c4a38]/92 sm:text-[13px]"
+            style={{ fontFamily: "var(--font-cormorant), serif" }}
+          >
+            Seal this memory forever. Create your private archive to ensure this
+            ink never fades.
+          </p>
+        </div>
+      ) : null}
 
       {footerSlot ? (
         <div className="px-5 pb-5" style={{ paddingLeft: 68 }}>

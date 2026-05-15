@@ -12,7 +12,7 @@ export default async function VaultPage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/");
+    return <LoveLetterDesk initialLetters={[]} userId={null} />;
   }
 
   let letters: Letter[] = [];

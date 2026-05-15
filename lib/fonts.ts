@@ -1,7 +1,9 @@
 import {
   Dancing_Script,
   Caveat,
-  Sacramento,
+  Loved_by_the_King,
+  Lumanosimo,
+  Long_Cang,
   Playfair_Display,
   Cormorant_Garamond,
   IM_Fell_English,
@@ -22,10 +24,22 @@ export const caveat = Caveat({
   variable: "--font-caveat",
 });
 
-export const sacramento = Sacramento({
+export const lovedByTheKing = Loved_by_the_King({
   subsets: ["latin"],
   weight: ["400"],
-  variable: "--font-sacramento",
+  variable: "--font-loved-by-the-king",
+});
+
+export const lumanosimo = Lumanosimo({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-lumanosimo",
+});
+
+export const longCang = Long_Cang({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-long-cang",
 });
 
 export const playfairDisplay = Playfair_Display({
@@ -69,7 +83,10 @@ export const dmSans = DM_Sans({
 });
 
 export const FONT_CLASSNAMES = {
-  dancing_script: dancingScript.className,
+  loved_by_the_king: lovedByTheKing.className,
+  lumanosimo: lumanosimo.className,
+  long_cang: longCang.className,
+  love_ya_like_a_sister: loveYaLikeASister.className,
   caveat: caveat.className,
-  sacramento: sacramento.className,
+  dancing_script: dancingScript.className,
 } as const;

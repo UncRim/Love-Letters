@@ -9,9 +9,11 @@ import { FlowerPicker } from "./ui/FlowerPicker";
 import { LetterSealSuccessModal } from "./LetterSealSuccessModal";
 import { SendMailIcon } from "./SendMailIcon";
 import { FONT_CLASSNAMES } from "@/lib/fonts";
+import { appendGuestSentLetterId } from "@/lib/guest-session";
 import {
   THEME_CONFIG,
   FONT_META,
+  FONT_STYLES,
   STAMP_TYPES,
   MAX_STAMPS_PER_LETTER,
   type FontStyle,
@@ -62,7 +64,12 @@ export function ComposerForm() {
       if (d.title) setTitle(d.title);
       if (Array.isArray(d.pages) && d.pages.length) setPages(d.pages);
       if (typeof d.curPage === "number") setCurPage(d.curPage);
-      if (d.fontStyle) setFontStyle(d.fontStyle);
+      if (
+        d.fontStyle &&
+        (FONT_STYLES as readonly string[]).includes(d.fontStyle)
+      ) {
+        setFontStyle(d.fontStyle);
+      }
       if (d.colorTheme) setColorTheme(d.colorTheme);
       const stampSet = STAMP_TYPES as readonly string[];
       let loadedStamps: StampType[] = [];
@@ -148,8 +155,17 @@ export function ComposerForm() {
         }),
       });
 
-      const data = (await res.json()) as { shareUrl?: string; error?: string };
+      const data = (await res.json()) as {
+        shareUrl?: string;
+        id?: string;
+        guest?: boolean;
+        error?: string;
+      };
       if (!res.ok) throw new Error(data.error ?? "Seal failed");
+
+      if (data.guest && data.id) {
+        appendGuestSentLetterId(data.id);
+      }
 
       setSaved(true);
       setShareUrl(data.shareUrl ?? null);
@@ -178,7 +194,7 @@ export function ComposerForm() {
 
   return (
     <>
-    <div className="grid gap-5" style={{ gridTemplateColumns: "1fr 272px" }}>
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_272px]">
       {/* ── LEFT: Notebook Paper ── */}
       <div className="relative">
         <div
@@ -216,13 +232,10 @@ export function ComposerForm() {
             }}
           />
           <div
-            className="absolute top-0 bottom-0 z-[1] pointer-events-none"
-            style={{ left: 54, width: 1, background: marginColor }}
+            className="absolute top-0 bottom-0 left-[42px] z-[1] w-px pointer-events-none sm:left-[54px]"
+            style={{ background: marginColor }}
           />
-          <div
-            className="absolute top-0 bottom-0 z-[2] flex flex-col gap-[100px] pt-[55px] pointer-events-none"
-            style={{ left: 17 }}
-          >
+          <div className="absolute left-3 top-0 bottom-0 z-[2] flex flex-col gap-[100px] pt-[55px] pointer-events-none sm:left-[17px]">
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
@@ -242,15 +255,12 @@ export function ComposerForm() {
             }
           />
 
-          <div
-            className="relative z-[3] pb-6 pr-5 pt-[172px] sm:pt-[184px]"
-            style={{ paddingLeft: 68 }}
-          >
+          <div className="relative z-[3] pb-6 pl-12 pr-3 pt-[172px] sm:pl-14 sm:pr-5 sm:pt-[184px] lg:pl-[68px]">
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Letter title..."
-              className="w-full border-none bg-transparent outline-none text-xl font-semibold block mb-5 tracking-wide placeholder:text-stone-400/50"
+              className="w-full border-none bg-transparent text-base font-semibold tracking-wide outline-none placeholder:text-stone-400/50 sm:text-xl mb-5 block"
               style={{
                 color: inkColor,
                 fontFamily,
@@ -262,9 +272,8 @@ export function ComposerForm() {
               value={pageContent}
               onChange={(e) => handleBodyChange(e.target.value)}
               placeholder="Begin your letter here..."
-              className="w-full border-none bg-transparent outline-none resize-none text-[17px] leading-[1.9] block placeholder:text-stone-400/40"
+              className="w-full min-h-[260px] resize-none border-none bg-transparent text-base leading-[1.9] outline-none placeholder:text-stone-400/40 sm:min-h-[340px] sm:text-[17px] block"
               style={{
-                minHeight: 340,
                 color: inkColor,
                 fontFamily,
                 caretColor: inkColor,
@@ -273,9 +282,8 @@ export function ComposerForm() {
           </div>
 
           <div
-            className="flex items-center justify-between py-2 pr-5"
+            className="flex items-center justify-between py-2 pl-12 pr-3 sm:pl-14 sm:pr-5 lg:pl-[68px]"
             style={{
-              paddingLeft: 68,
               borderTop: `0.5px solid ${
                 colorTheme === "midnight"
                   ? "rgba(255,255,255,0.07)"
@@ -304,7 +312,7 @@ export function ComposerForm() {
       </div>
 
       {/* ── RIGHT: Settings ── */}
-      <div className="rounded-xl p-[14px] flex flex-col gap-4 border border-stone-200/60 bg-white/70 backdrop-blur-sm self-start">
+      <div className="rounded-xl p-[14px] flex w-full min-w-0 flex-col gap-4 border border-stone-200/60 bg-white/70 backdrop-blur-sm md:w-[272px] md:shrink-0 md:self-start">
         {/* Stationery */}
         <section>
           <p className="text-[10px] tracking-[0.1em] uppercase text-stone-500 mb-[9px]">
@@ -389,7 +397,7 @@ export function ComposerForm() {
             value={secretKey}
             onChange={(e) => setSecretKey(e.target.value)}
             placeholder="Choose a memorable key\u2026"
-            className="w-full px-2 py-2 rounded-md border border-stone-200 bg-white text-[12px] text-stone-700 font-[family-name:var(--font-dm-sans)] focus:outline-none focus:ring-1 focus:ring-[#6B1B1B]/35"
+            className="w-full px-2 py-2 rounded-md border border-stone-200 bg-white text-base text-stone-700 font-[family-name:var(--font-dm-sans)] focus:outline-none focus:ring-1 focus:ring-[#6B1B1B]/35 sm:text-[12px]"
           />
         </section>
 

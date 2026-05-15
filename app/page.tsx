@@ -23,7 +23,7 @@ export default async function HomePage() {
       <div className="split-seam hidden lg:block" aria-hidden="true" />
 
       {/* ── Left panel ── */}
-      <div className="w-full lg:w-1/2 min-h-screen flex flex-col items-center justify-center bg-[#faf6f1] px-6 py-16 lg:px-16">
+      <div className="w-full lg:w-1/2 min-h-screen flex flex-col items-center justify-center bg-[#faf6f1] px-[max(1.25rem,env(safe-area-inset-left,0px))] pr-[max(1.25rem,env(safe-area-inset-right,0px))] py-16 pb-[max(4rem,env(safe-area-inset-bottom,0px))] lg:px-16">
         <div className="w-full max-w-[420px] auth-fade-1">
           <h1 className="mb-1.5 font-normal sm:mb-2">
             <BrandLogo size="hero" />
@@ -40,6 +40,12 @@ export default async function HomePage() {
                 <path d="M5 12H19M19 12L13 6M19 12L13 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
+          </a>
+          <a
+            href="/compose"
+            className="mt-4 block w-full max-w-[360px] text-center text-[14px] font-[family-name:var(--font-dm-sans)] text-[#6b4a3a] underline decoration-[rgba(107,74,58,0.35)] underline-offset-[6px] hover:text-[#5d1a17] hover:decoration-[rgba(93,26,23,0.45)]"
+          >
+            Compose a letter without signing in
           </a>
         </div>
       </div>

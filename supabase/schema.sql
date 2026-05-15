@@ -5,7 +5,7 @@ create table public.letters (
   id               uuid primary key default gen_random_uuid(),
   created_at       timestamptz not null default now(),
   delivered_at     timestamptz,
-  author_id        uuid not null references auth.users(id) on delete cascade,
+  author_id        uuid references auth.users(id) on delete cascade,
   recipient_id     uuid not null references auth.users(id) on delete cascade,
 
   -- Content
@@ -14,7 +14,10 @@ create table public.letters (
 
   -- Stationery metadata
   font_style       text not null default 'dancing_script'
-                     check (font_style in ('dancing_script','caveat','sacramento')),
+                     check (font_style in (
+                       'loved_by_the_king','lumanosimo','long_cang',
+                       'love_ya_like_a_sister','caveat','dancing_script'
+                     )),
   color_theme      text not null default 'vintage'
                      check (color_theme in ('vintage','rose','midnight')),
 
@@ -40,7 +43,8 @@ create table public.letters (
   -- State
   is_draft         boolean not null default true,
   is_opened        boolean not null default false,
-  opened_at        timestamptz
+  opened_at        timestamptz,
+  recipient_claimed_at timestamptz  -- set when recipient archives from share link (see migrations)
 );
 
 -- Row Level Security
@@ -58,6 +62,9 @@ create policy "recipient_read" on public.letters
 create policy "author_write" on public.letters
   for all using (auth.uid() = author_id)
   with check (auth.uid() = author_id);
+
+-- Archiving a share-link letter into the vault: enforced in the app
+-- (POST /api/letters/[id]/claim verifies the secret server-side; no broad UPDATE policy).
 
 -- Index for vault query performance
 create index letters_recipient_idx on public.letters(recipient_id, delivered_at);

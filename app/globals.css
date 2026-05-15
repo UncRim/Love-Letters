@@ -29,6 +29,30 @@ body {
   color: var(--foreground);
 }
 
+/* Horizontal padding + notched-device safe insets (used on desk / vault shells). */
+.desk-shell-inline {
+  padding-inline-start: max(1rem, env(safe-area-inset-left, 0px));
+  padding-inline-end: max(1rem, env(safe-area-inset-right, 0px));
+}
+@media (min-width: 640px) {
+  .desk-shell-inline {
+    padding-inline-start: max(1.5rem, env(safe-area-inset-left, 0px));
+    padding-inline-end: max(1.5rem, env(safe-area-inset-right, 0px));
+  }
+}
+@media (min-width: 768px) {
+  .desk-shell-inline {
+    padding-inline-start: max(2rem, env(safe-area-inset-left, 0px));
+    padding-inline-end: max(2rem, env(safe-area-inset-right, 0px));
+  }
+}
+@media (min-width: 1024px) {
+  .desk-shell-inline {
+    padding-inline-start: max(2.5rem, env(safe-area-inset-left, 0px));
+    padding-inline-end: max(2.5rem, env(safe-area-inset-right, 0px));
+  }
+}
+
 /* Letter write-in animation */
 .letter-para {
   opacity: 0;
@@ -574,7 +598,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  padding: 1rem 0;
+  padding-top: max(1rem, env(safe-area-inset-top, 0px));
+  padding-bottom: 1rem;
   border-bottom: 1px solid var(--desk-header-border);
   background: var(--brand-surface-header);
   backdrop-filter: blur(10px);
@@ -652,7 +677,7 @@ body {
 
 .vault-tab {
   font-family: var(--font-love-ya), cursive;
-  font-size: 20px;
+  font-size: clamp(17px, 4.2vw, 20px);
   color: #8a5e52;
   display: inline-flex;
   align-items: center;

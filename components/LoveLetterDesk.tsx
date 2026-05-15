@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { EnvelopeView, EnvelopeComposePreview } from "./EnvelopeView";
 import { LetterView } from "./LetterView";
@@ -11,8 +12,15 @@ import { BrandLogo } from "./BrandLogo";
 import { FlowerPicker } from "./ui/FlowerPicker";
 import { LetterSealSuccessModal } from "./LetterSealSuccessModal";
 import { SendMailIcon } from "./SendMailIcon";
+import { GuestVaultPanel } from "./GuestVaultPanel";
 import { createClient } from "@/lib/supabase/client";
 import { FONT_CLASSNAMES } from "@/lib/fonts";
+import {
+  readGuestSentLetterIds,
+  removeGuestSentLetterIds,
+  appendGuestSentLetterId,
+} from "@/lib/guest-session";
+import { flushPendingVaultClaim } from "@/lib/vault-claim";
 import {
   THEME_CONFIG,
   FONT_META,
@@ -30,7 +38,8 @@ type VaultTab = "sealed" | "unsealed";
 
 interface LoveLetterDeskProps {
   initialLetters: Letter[];
-  userId: string;
+  /** `null` when the visitor has not signed in — guest vault UX. */
+  userId: string | null;
 }
 
 export function LoveLetterDesk({
@@ -38,8 +47,10 @@ export function LoveLetterDesk({
   userId,
 }: LoveLetterDeskProps) {
   const router = useRouter();
+  const isGuest = userId === null;
   const [view, setView] = useState<View>("vault");
   const [letters, setLetters] = useState(initialLetters);
+  const [guestSentCount, setGuestSentCount] = useState(0);
   const [activeLetter, setActiveLetter] = useState<Letter | null>(null);
   const [envelopeOpened, setEnvelopeOpened] = useState(false);
   const [vaultTab, setVaultTab] = useState<VaultTab>("unsealed");
@@ -131,9 +142,61 @@ export function LoveLetterDesk({
   }
 
   function goToCompose() {
+    if (isGuest) {
+      router.push("/compose");
+      return;
+    }
     resetComposer();
     setView("compose");
   }
+
+  useEffect(() => {
+    if (isGuest) setView("vault");
+  }, [isGuest]);
+
+  useEffect(() => {
+    if (!isGuest) return;
+    setGuestSentCount(readGuestSentLetterIds().length);
+  }, [isGuest, view]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const ids = readGuestSentLetterIds();
+    if (ids.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/letters/sync-guest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ letterIds: ids }),
+        });
+        const data = (await res.json()) as { ids?: string[] };
+        if (cancelled || !res.ok) return;
+        removeGuestSentLetterIds(data.ids ?? []);
+        if ((data.ids ?? []).length > 0) {
+          startTransition(() => router.refresh());
+        }
+      } catch {
+        /* leave ids for a retry on next mount */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, router]);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    void (async () => {
+      const ok = await flushPendingVaultClaim();
+      if (!cancelled && ok) startTransition(() => router.refresh());
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, router]);
 
   // ── Compose actions ──
 
@@ -182,8 +245,17 @@ export function LoveLetterDesk({
         }),
       });
 
-      const data = (await res.json()) as { shareUrl?: string; error?: string };
+      const data = (await res.json()) as {
+        shareUrl?: string;
+        id?: string;
+        guest?: boolean;
+        error?: string;
+      };
       if (!res.ok) throw new Error(data.error ?? "Seal failed");
+
+      if (data.guest && data.id) {
+        appendGuestSentLetterId(data.id);
+      }
 
       setSaved(true);
       setShareUrl(data.shareUrl ?? null);
@@ -252,17 +324,33 @@ export function LoveLetterDesk({
       month: "short",
     });
 
+  const NEW_VAULT_HIGHLIGHT_MS = 72 * 60 * 60 * 1000;
+  const isVaultNewHighlight = (letter: Letter) => {
+    const raw = letter.recipient_claimed_at;
+    if (!raw) return false;
+    return Date.now() - new Date(raw).getTime() < NEW_VAULT_HIGHLIGHT_MS;
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <header className="desk-header sticky top-0 z-40 shrink-0">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-6 sm:px-10">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 sm:gap-4 desk-shell-inline">
           <button type="button" onClick={goToVault} className="text-left group min-w-0">
             <span className="inline-block transition-opacity group-hover:opacity-[0.88]">
               <BrandLogo size="desk" />
             </span>
           </button>
 
-          {view === "compose" ? (
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            {isGuest ? (
+              <Link
+                href="/auth/login?redirect_to=/vault"
+                className="text-[12px] font-medium text-[#6b4a3a] font-[family-name:var(--font-dm-sans)] hover:text-[#5d1a17] transition-colors whitespace-nowrap sm:text-[13px]"
+              >
+                Sign in
+              </Link>
+            ) : null}
+            {view === "compose" ? (
             <button
               type="button"
               onClick={handleSeal}
@@ -273,7 +361,7 @@ export function LoveLetterDesk({
                 secretKey.length < 4 ||
                 saved
               }
-              className="vault-compose-btn shrink-0 px-5 py-2.5 text-[16px] disabled:opacity-40 disabled:pointer-events-none"
+              className="vault-compose-btn shrink-0 px-3 py-2 text-sm sm:px-5 sm:py-2.5 sm:text-[16px] disabled:opacity-40 disabled:pointer-events-none"
             >
               {saving || saved ? null : (
                 <span aria-hidden className="inline-flex shrink-0 opacity-[0.92]">
@@ -286,12 +374,13 @@ export function LoveLetterDesk({
             <button
               type="button"
               onClick={goToCompose}
-              className="vault-compose-btn shrink-0 py-2.5 px-5 text-[15px]"
+              className="vault-compose-btn shrink-0 px-3 py-2 text-sm sm:py-2.5 sm:px-5 sm:text-[15px]"
             >
               <span>Compose</span>
               <PencilIcon />
             </button>
           )}
+          </div>
         </div>
       </header>
 
@@ -310,7 +399,7 @@ export function LoveLetterDesk({
             >
               <div className="vault-grain pointer-events-none absolute inset-0" />
 
-              <div className="relative max-w-7xl mx-auto px-6 sm:px-10 pt-4 pb-8 sm:pt-5">
+              <div className="relative max-w-7xl mx-auto pt-4 pb-8 sm:pt-5 desk-shell-inline">
                 {/* Page title — Compose lives in the sticky desk header */}
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div>
@@ -319,6 +408,12 @@ export function LoveLetterDesk({
                 </div>
 
                 {letters.length === 0 ? (
+                  isGuest ? (
+                    <GuestVaultPanel
+                      guestSentCount={guestSentCount}
+                      onCompose={goToCompose}
+                    />
+                  ) : (
                   <div className="flex flex-col items-center justify-center text-center py-16">
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
@@ -349,6 +444,7 @@ export function LoveLetterDesk({
                       <PencilIcon />
                     </button>
                   </div>
+                  )
                 ) : (
                   <div className="mt-6">
                     <div
@@ -436,6 +532,7 @@ export function LoveLetterDesk({
                                   flower={letter.flower_type}
                                   isOpened={false}
                                   cardMode
+                                  vaultNewHighlight={isVaultNewHighlight(letter)}
                                   onOpen={() => openLetter(letter)}
                                 />
                               </motion.div>
@@ -486,6 +583,7 @@ export function LoveLetterDesk({
                                   flower={letter.flower_type}
                                   isOpened
                                   cardMode
+                                  vaultNewHighlight={isVaultNewHighlight(letter)}
                                   body={letter.body}
                                   fontStyle={letter.font_style}
                                   onOpen={() => openLetter(letter)}
@@ -513,7 +611,7 @@ export function LoveLetterDesk({
               className="desk-canvas vault-page relative min-h-full"
             >
               <div className="vault-grain pointer-events-none absolute inset-0" />
-              <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-6">
+              <div className="relative max-w-6xl mx-auto py-6 desk-shell-inline">
                 <button
                   type="button"
                   onClick={goToVault}
@@ -524,8 +622,8 @@ export function LoveLetterDesk({
                 </button>
 
               <div className="flex flex-col lg:flex-row lg:items-start gap-8 lg:gap-10 xl:gap-12">
-                <aside className="shrink-0 flex flex-col items-center lg:items-stretch lg:w-[240px] lg:sticky lg:top-24 lg:self-start">
-                  <div className="w-[228px] max-w-[85vw] mx-auto lg:mx-0">
+                <aside className="shrink-0 flex flex-col items-center lg:items-stretch lg:w-[240px] lg:sticky lg:top-[calc(5.5rem+env(safe-area-inset-top,0px))] lg:self-start">
+                  <div className="mx-auto w-full max-w-[min(228px,calc(100vw-2rem))] lg:mx-0">
                     <EnvelopeView
                       title={activeLetter.title}
                       date={new Date(
@@ -600,8 +698,8 @@ export function LoveLetterDesk({
               className="desk-canvas vault-page relative min-h-full"
             >
               <div className="vault-grain pointer-events-none absolute inset-0" />
-              <div className="relative py-8 px-4 sm:px-8">
-              <div className="max-w-5xl mx-auto">
+              <div className="relative py-6 sm:py-8 desk-shell-inline">
+                <div className="max-w-5xl mx-auto w-full min-w-0">
                 <div className="mb-7">
                   <button
                     type="button"
@@ -627,8 +725,8 @@ export function LoveLetterDesk({
                   </div>
                 )}
 
-                {/* Split layout — stacks on narrow; xl row height = sidebar, paper stretches to match */}
-                <div className="grid gap-8 lg:gap-10 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(272px,300px)] xl:items-stretch">
+                {/* Split layout — stacks on phones; tablet+ sidebar beside paper */}
+                <div className="grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,1fr)_minmax(260px,300px)] md:items-stretch md:gap-8 lg:gap-10">
                   {/* ── LEFT: Notebook Paper ── */}
                   <div className="relative min-h-[480px] h-full flex flex-col">
                     {/* Stacked paper shadow layers */}
@@ -670,18 +768,11 @@ export function LoveLetterDesk({
                       />
                       {/* Margin */}
                       <div
-                        className="absolute top-0 bottom-0 z-[1] pointer-events-none"
-                        style={{
-                          left: 54,
-                          width: 1,
-                          background: marginColor,
-                        }}
+                        className="absolute top-0 bottom-0 left-[42px] z-[1] w-px pointer-events-none sm:left-[54px]"
+                        style={{ background: marginColor }}
                       />
                       {/* Holes */}
-                      <div
-                        className="absolute top-0 bottom-0 z-[2] flex flex-col gap-[100px] pt-[55px] pointer-events-none"
-                        style={{ left: 17 }}
-                      >
+                      <div className="absolute left-3 top-0 bottom-0 z-[2] flex flex-col gap-[100px] pt-[55px] pointer-events-none sm:left-[17px]">
                         {[0, 1, 2].map((i) => (
                           <div
                             key={i}
@@ -706,15 +797,12 @@ export function LoveLetterDesk({
                       />
 
                       {/* Writing area — top padding clears the postage stamp (top-right); ruled lines stay aligned */}
-                      <div
-                        className="relative z-[3] flex flex-col flex-1 min-h-0 pb-4 pr-5 pt-[172px] sm:pt-[184px]"
-                        style={{ paddingLeft: 68 }}
-                      >
+                      <div className="relative z-[3] flex min-h-0 flex-1 flex-col pb-4 pl-12 pr-3 pt-[172px] sm:pl-14 sm:pr-5 sm:pt-[184px] lg:pl-[68px]">
                         <input
                           value={title}
                           onChange={(e) => setTitle(e.target.value)}
                           placeholder="Letter title..."
-                          className="w-full shrink-0 border-none bg-transparent outline-none text-xl font-semibold block mb-4 tracking-wide placeholder:text-stone-400/50"
+                          className="w-full shrink-0 border-none bg-transparent outline-none text-base font-semibold tracking-wide placeholder:text-stone-400/50 sm:text-xl block mb-4"
                           style={{
                             color: inkColor,
                             fontFamily,
@@ -726,7 +814,7 @@ export function LoveLetterDesk({
                           value={pageContent}
                           onChange={(e) => handleBodyChange(e.target.value)}
                           placeholder="Begin your letter here..."
-                          className="w-full flex-1 min-h-[240px] border-none bg-transparent outline-none resize-none text-[17px] leading-[1.9] block placeholder:text-stone-400/40"
+                          className="w-full min-h-[200px] flex-1 resize-none border-none bg-transparent text-base leading-[1.9] outline-none placeholder:text-stone-400/40 sm:min-h-[240px] sm:text-[17px] block"
                           style={{
                             color: inkColor,
                             fontFamily,
@@ -737,9 +825,8 @@ export function LoveLetterDesk({
 
                       {/* Page nav */}
                       <div
-                        className="flex shrink-0 items-center justify-between py-2 pr-5 mt-auto"
+                        className="mt-auto flex shrink-0 items-center justify-between py-2 pl-12 pr-3 sm:pl-14 sm:pr-5 lg:pl-[68px]"
                         style={{
-                          paddingLeft: 68,
                           borderTop: `0.5px solid ${
                             colorTheme === "midnight"
                               ? "rgba(255,255,255,0.07)"
@@ -768,7 +855,7 @@ export function LoveLetterDesk({
                   </div>
 
                   {/* ── RIGHT: Preview first, then stationery & picks ── */}
-                  <div className="rounded-2xl p-4 flex flex-col gap-5 border border-[var(--desk-header-border)] bg-[var(--brand-surface-header)] backdrop-blur-md shadow-[0_6px_24px_rgba(45,28,12,0.07)] xl:sticky xl:top-24 xl:self-start">
+                  <div className="rounded-2xl p-4 flex min-w-0 flex-col gap-5 border border-[var(--desk-header-border)] bg-[var(--brand-surface-header)] backdrop-blur-md shadow-[0_6px_24px_rgba(45,28,12,0.07)] md:sticky md:top-[calc(4.5rem+env(safe-area-inset-top,0px))] md:self-start">
                     {/* Live preview — blank opened envelope (top of sidebar) */}
                     <section className="pb-1 border-b border-[rgba(120,75,35,0.15)]">
                       <p className="text-[10px] tracking-[0.12em] uppercase text-[#5d1a17]/65 mb-2">
@@ -883,7 +970,7 @@ export function LoveLetterDesk({
                         value={secretKey}
                         onChange={(e) => setSecretKey(e.target.value)}
                         placeholder="At least 4 characters\u2026"
-                        className="w-full px-2 py-2 rounded-md border border-stone-200 bg-white text-[12px] text-stone-700 font-[family-name:var(--font-dm-sans)] focus:outline-none focus:ring-1 focus:ring-[#6B1B1B]/35"
+                        className="w-full px-2 py-2 rounded-md border border-stone-200 bg-white text-base text-stone-700 font-[family-name:var(--font-dm-sans)] focus:outline-none focus:ring-1 focus:ring-[#6B1B1B]/35 sm:text-[12px]"
                       />
                     </section>
 
